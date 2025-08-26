@@ -180,10 +180,13 @@ public:
     vector<MapPoint*> GetLocalMapMPS();
 
     bool mbWriteStats;
-    
+
     std::vector<double> fe_times;
+    std::vector<double> matching_times;
+    std::vector<int> feat_nums;
     
     void OutputFETimes();
+    void OutputAvgNumofFeat();
 #ifdef REGISTER_TIMES
     void LocalMapStats2File();
     void TrackStats2File();
@@ -271,6 +274,11 @@ protected:
 
     //Extractor
     
+    //Matching Times
+
+    double TrackLocalMap_ms;
+    double TrackOthers_ms;
+
 
     //BoW
     ORBVocabulary* mpORBVocabulary;

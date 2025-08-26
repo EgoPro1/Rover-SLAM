@@ -2,7 +2,6 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include <onnxruntime_cxx_api.h>
-
 #include "Matchers/transform.h"
 #include "Matchers/Configuration.h"
 
@@ -22,7 +21,7 @@ public:
     std::vector<std::vector<int64_t>> ExtractorInputNodeShapes;
     std::vector<char*> ExtractorOutputNodeNames;
     std::vector<std::vector<int64_t>> ExtractorOutputNodeShapes;
-
+    
     // std::vector<char*> MatcherInputNodeNames;
     // std::vector<std::vector<int64_t>> MatcherInputNodeShapes;
     // std::vector<char*> MatcherOutputNodeNames;
@@ -31,6 +30,7 @@ public:
     float matchThresh = 0.0f;
     long long extractor_timer = 0.0f;
     long long matcher_timer = 0.0f;
+    int pfeat = 100;
 
     float lastmatch = 0;
     std::vector<float> scales = {1.0f , 1.0f};
@@ -45,7 +45,6 @@ public:
     cv::Mat Extractor_PreProcess(Configuration cfg , const cv::Mat& srcImage , float& scale);
     int Extractor_Inference(Configuration cfg , const cv::Mat& image);
     void Extractor_PostProcess(Configuration cfg , std::vector<Ort::Value> tensor, std::vector<cv::KeyPoint>& vKeyPoints, cv::Mat &Descriptors);
-
     // std::vector<cv::Point2f> Matcher_PreProcess(std::vector<cv::Point2f> kpts, int h , int w);
     // std::vector<Ort::Value> Matcher_Inference(std::vector<cv::KeyPoint> kpts0 , std::vector<cv::KeyPoint> kpts1 , float* desc0 , float* desc1);
     // std::vector<Ort::Value> Matcher_Inference(std::vector<cv::Point2f> kpts0 , std::vector<cv::Point2f> kpts1 , float* desc0 , float* desc1);
@@ -65,4 +64,6 @@ public:
     
     std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>> InferenceImage(Configuration cfg , \
             const cv::Mat& srcImage, const cv::Mat& destImage);
+private:
+    std::vector<double> onnx_times;
 };

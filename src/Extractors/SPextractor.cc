@@ -82,9 +82,9 @@ const int EDGE_THRESHOLD = 19;
 const float factorPI = (float)(CV_PI/180.f);
 
 SPextractor::SPextractor(int _nfeatures, float _scaleFactor, int _nlevels,
-         float _iniThFAST, float _minThFAST):
+         float _iniThFAST, float _minThFAST, int pfeatures):
     nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-    iniThFAST(_iniThFAST), minThFAST(_minThFAST)
+    iniThFAST(_iniThFAST), minThFAST(_minThFAST), pfeatures(pfeatures)
 {
    
     if(mModelstr == "onnx")
@@ -595,6 +595,7 @@ int SPextractor::ExtractSingleLayer(const cv::Mat &image, std::vector<cv::KeyPoi
         Configuration cfg;
         cv::Mat image_copy = image.clone();
         cv::Mat inputImage = NormalizeImage(image_copy);
+        featureExtractor->pfeat = pfeatures;
         featureExtractor->lastmatch = lastmatchnum;
         featureExtractor->Extractor_Inference(cfg , inputImage);
         featureExtractor->Extractor_PostProcess(cfg , std::move(featureExtractor->extractor_outputtensors[0]),vKeyPoints,Descriptors);
@@ -604,14 +605,10 @@ int SPextractor::ExtractSingleLayer(const cv::Mat &image, std::vector<cv::KeyPoi
         // cerr <<"Error while detecting keypoints"<<endl;
     }
 
-    //std::cout << "[INFO] keyPoints size:" <<vKeyPoints.size()<<std::endl;
-
-
     // cv::Mat imagewithKeyPoints;
     // cv::drawKeypoints(image, vKeyPoints, imagewithKeyPoints, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
     // cv::imshow("Image with KeyPoints", imagewithKeyPoints);
     // cv::waitKey(0);
-
 
     return vKeyPoints.size();
 }

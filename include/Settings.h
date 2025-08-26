@@ -99,7 +99,7 @@ namespace ORB_SLAM3 {
         float initThFAST() {return initThFAST_;}
         float minThFAST() {return minThFAST_;}
         float scaleFactor() {return scaleFactor_;}
-
+        int pFeatures() {return pFeatures_;}
         float keyFrameSize() {return keyFrameSize_;}
         float keyFrameLineWidth() {return keyFrameLineWidth_;}
         float graphLineWidth() {return graphLineWidth_;}
@@ -205,7 +205,7 @@ namespace ORB_SLAM3 {
         float scaleFactor_;
         int nLevels_;
         int initThFAST_, minThFAST_;
-
+        int pFeatures_;
         /*
          * Viewer stuff
          */

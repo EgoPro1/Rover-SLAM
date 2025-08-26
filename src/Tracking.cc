@@ -147,7 +147,8 @@ Tracking::Tracking(System *pSys, SPVocabulary* pVoc, FrameDrawer *pFrameDrawer, 
     }
 
     fe_times.clear();
-
+    matching_times.clear();
+    feat_nums.clear();
 #ifdef REGISTER_TIMES
     vdRectStereo_ms.clear();
     vdResizeImage_ms.clear();
@@ -631,7 +632,7 @@ void Tracking::newParameterLoader(Settings *settings) {
     int fIniThFAST = settings->initThFAST();
     int fMinThFAST = settings->minThFAST();
     float fScaleFactor = settings->scaleFactor();
-
+    int pFeatures = settings->pFeatures();
     
     // mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
@@ -648,13 +649,13 @@ void Tracking::newParameterLoader(Settings *settings) {
     // _superpoint->super_point_config_.dla_core = -1;
     // _superpoint->super_point_config_.onnx_file = "/home/xiao/catkin_ws/src/AirVO/output/superpoint_v1_sim_int32.onnx";
 
-    mpExtractorLeft = new SPextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpExtractorLeft = new SPextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
 
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
-       mpExtractorRight = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        mpExtractorRight = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
 
     if(mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR)
-        mpIniExtractor = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        mpIniExtractor = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
 
     //IMU parameters
     // 3. 读取imu参数
@@ -679,21 +680,48 @@ void Tracking::OutputFETimes(){
         std::cout << "No feature extraction times recorded" << std::endl;
         return;
     }
-
-    double total_time = 0.0;
+    if(matching_times.empty())
+    {
+        std::cout << "No matching times recorded" << std::endl;
+        return;
+    }    
+    double total_fe_time = 0.0;
     for(double time : fe_times)
     {
-        total_time += time;
+        total_fe_time += time;
     }
-    double average_time = total_time / fe_times.size();
-    double fps = 1000.0 / average_time;
+    double average_fe_time = total_fe_time / fe_times.size();
+    double fps = 1000.0 / average_fe_time;
     std::cout << "Feature extraction times (ms):" << std::endl;
     //for(size_t i = 0; i < fe_times.size(); ++i)
     //{
     //    std::cout << "Frame " << i + 1 << ": " << fe_times[i] << " ms" << std::endl;
     //}
-    std::cout << "Average time: " << average_time << " ms" << std::endl;
+    std::cout << "Average time: " << average_fe_time << " ms" << std::endl;
     std::cout << "FPS: " << fps << std::endl;
+
+    double total_matching_time = 0.0;
+    for(double time : matching_times)
+    {
+        total_matching_time += time;   
+    }
+    double average_matching_time = total_matching_time / matching_times.size();
+    std::cout << "Average matching times (ms):" << average_matching_time << std::endl;
+}
+
+void Tracking::OutputAvgNumofFeat(){   
+    if(feat_nums.empty())
+    {
+        std::cout << "No feature extracted" << std::endl;
+        return;
+    }
+    int total_features = 0;
+    for(int num : feat_nums)
+    {
+        total_features += num;
+    }
+    double avg_feature_num = static_cast<double>(total_features) / feat_nums.size();
+    std::cout << "Average Number of Features extracted: " << avg_feature_num << std::endl;
 }
 
 /**
@@ -1305,7 +1333,7 @@ bool Tracking::ParseCamParamFile(cv::FileStorage &fSettings)
 bool Tracking::ParseORBParamFile(cv::FileStorage &fSettings)
 {
     bool b_miss_params = false;
-    int nFeatures, nLevels, fIniThFAST, fMinThFAST;
+    int nFeatures, nLevels, fIniThFAST, fMinThFAST, pFeatures;
     float fScaleFactor;
 
     cv::FileNode node = fSettings["ORBextractor.nFeatures"];
@@ -1363,26 +1391,37 @@ bool Tracking::ParseORBParamFile(cv::FileStorage &fSettings)
         b_miss_params = true;
     }
 
+    node = fSettings["ORBextractor.pFeatures"];
+    if(!node.empty() && node.isInt())
+    {
+        pFeatures = node.operator int();
+    }
+    else
+    {
+        std::cerr << "*ORBextractor.pFeatures parameter doesn't exist or is not an integer*" << std::endl;
+        b_miss_params = true;
+    }
+
     if(b_miss_params)
     {
         return false;
     }
 
     //mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    mpExtractorLeft = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpExtractorLeft = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
     if(mSensor==System::STEREO || mSensor==System::IMU_STEREO)
         //mpExtractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-        mpExtractorRight = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        mpExtractorRight = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
     if(mSensor==System::MONOCULAR || mSensor==System::IMU_MONOCULAR)
         //mpIniORBextractor = new ORBextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-        mpIniExtractor = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        mpIniExtractor = new SPextractor(5*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST,pFeatures);
     cout << endl << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << nFeatures << endl;
     cout << "- Scale Levels: " << nLevels << endl;
     cout << "- Scale Factor: " << fScaleFactor << endl;
     cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
     cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
-
+    cout << "- pFeatures: " << pFeatures << endl;
     return true;
 }
 
@@ -1623,22 +1662,12 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
         mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpExtractorLeft,mpExtractorRight,mpSPVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr);
     else if(mSensor == System::IMU_STEREO && !mpCamera2)
     {
-        auto start = std::chrono::high_resolution_clock::now();
         mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpExtractorLeft,mpExtractorRight,mpSPVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
-        auto end = std::chrono::high_resolution_clock::now();
-        double fe_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        //cout << "fe time this frame: " << fe_time << endl;
-        fe_times.push_back(fe_time);
     }
         
     else if(mSensor == System::IMU_STEREO && mpCamera2)
     {
-        auto start = std::chrono::high_resolution_clock::now();
         mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpExtractorLeft,mpExtractorRight,mpSPVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
-        auto end = std::chrono::high_resolution_clock::now();
-        double fe_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-        //cout << "fe time this frame: " << fe_time << endl;
-        fe_times.push_back(fe_time);
     }
 
 
@@ -1755,30 +1784,39 @@ Sophus::SE3f Tracking::GrabImageMonocular(const cv::Mat &im, const double &times
     //     else
     //         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
     // }
-
+    std::chrono::steady_clock::time_point t_start = std::chrono::steady_clock::now();
     if (mSensor == System::MONOCULAR)
     {
         if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET ||(lastID - initID) < mMaxFrames)
+        {
             mCurrentFrame = Frame(mImGray,timestamp,mpIniExtractor,mpSPVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
+            
+        }    
         else
+        {
             mCurrentFrame = Frame(mImGray,timestamp,mpExtractorLeft,mpSPVocabulary,mpCamera,mDistCoef,mbf,mThDepth);
+        }    
     }
 
     else if(mSensor == System::IMU_MONOCULAR)
     {
         // 判断该帧是不是初始化
         if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)  //没有成功初始化的前一个状态就是NO_IMAGES_YET
-        {
+        {        
             mCurrentFrame = Frame(mImGray,timestamp,mpIniExtractor,mpSPVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
         }
         else
+        {
             mCurrentFrame = Frame(mImGray,timestamp,mpIniExtractor,mpSPVocabulary,mpCamera,mDistCoef,mbf,mThDepth,&mLastFrame,*mpImuCalib);
+        }
     }
-
+    std::chrono::steady_clock::time_point t_end = std::chrono::steady_clock::now();
+    double fe_time = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_end - t_start).count();
+    fe_times.push_back(fe_time);
+    feat_nums.push_back(mCurrentFrame.mvKeys.size());
     // t0存储未初始化时的第1帧图像时间戳
     if (mState==NO_IMAGES_YET)
         t0=timestamp;
-
     mCurrentFrame.mNameFile = filename;
     mCurrentFrame.mnDataset = mnNumDataset;
 
@@ -2205,7 +2243,8 @@ void Tracking::Track()
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartPosePred = std::chrono::steady_clock::now();
 #endif
-
+        TrackLocalMap_ms = 0.0;
+        TrackOthers_ms = 0.0;
         // Initial camera pose estimation using motion model or relocalization (if tracking is lost)
         // mbOnlyTracking等于false表示正常SLAM模式（定位+地图更新），mbOnlyTracking等于true表示仅定位模式
         // tracking 类构造时默认为false。在viewer中有个开关ActivateLocalizationMode，可以控制是否开启mbOnlyTracking
@@ -2225,7 +2264,7 @@ void Tracking::Track()
                 // Step 6.1 检查并更新上一帧被替换的MapPoints
                 // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
                 CheckReplacedInLastFrame();
-
+                std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                 // Step 6.2 运动模型是空的并且imu未初始化或刚完成重定位，跟踪参考关键帧；否则恒速模型跟踪
                 // 第一个条件,如果运动模型为空并且imu未初始化,说明是刚开始第一帧跟踪，或者已经跟丢了。
                 // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们用重定位帧来恢复位姿
@@ -2257,7 +2296,8 @@ void Tracking::Track()
                     }
                           // 根据恒速模型失败了，只能根据参考关键帧来跟踪
                 }
-
+                std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
+                TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                 // 新增了一个状态RECENTLY_LOST，主要是结合IMU看看能不能拽回来
                 // Step 6.3 如果经过跟踪参考关键帧、恒速模型跟踪都失败的话，并满足一定条件就要标记为RECENTLY_LOST或LOST
                 if (!bOK)
@@ -2371,6 +2411,7 @@ void Tracking::Track()
                 // mbVO为true表明此帧匹配了很少的MapPoints，少于10个，要跟丢
                 if(!mbVO)
                 {
+                    std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                     // In last frame we tracked enough MapPoints in the map
                     // Step 6.2 如果跟踪状态正常，使用恒速模型或参考关键帧跟踪
                     if(mbVelocity)
@@ -2384,6 +2425,8 @@ void Tracking::Track()
                         // 如果恒速模型不被满足,那么就只能够通过参考关键帧来跟踪
                         bOK = TrackReferenceKeyFrame();
                     }
+                    std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
+                    TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                 }
                 else
                 {
@@ -2408,7 +2451,10 @@ void Tracking::Track()
                     // Step 6.3 当运动模型有效的时候,根据运动模型计算位姿
                     if(mbVelocity)
                     {
+                        std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                         bOKMM = TrackWithMotionModel();
+                        std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
+                        TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                         // 将恒速模型跟踪结果暂存到这几个变量中，因为后面重定位会改变这些变量
                         vpMPsMM = mCurrentFrame.mvpMapPoints;
                         vbOutMM = mCurrentFrame.mvbOutlier;
@@ -2474,6 +2520,8 @@ void Tracking::Track()
         // 前面主要是两两跟踪（恒速模型跟踪上一帧、跟踪参考帧），这里搜索局部关键帧后搜集所有局部MapPoints，
         // 然后将局部MapPoints和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
         // If we have an initial estimation of the camera pose and matching. Track the local map.
+        
+        std::chrono::steady_clock::time_point tMap0 = std::chrono::steady_clock::now();
         if(!mbOnlyTracking)
         {
             if(bOK)
@@ -2497,6 +2545,8 @@ void Tracking::Track()
             if(bOK && !mbVO)
                 bOK = TrackLocalMap();
         }
+        std::chrono::steady_clock::time_point tMap1 = std::chrono::steady_clock::now();
+        TrackLocalMap_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMap1 - tMap0).count();
         // 到此为止跟踪确定位姿阶段结束，下面开始做收尾工作和为下一帧做准备
 
         // 查看到此为止时的两个状态变化
@@ -2754,6 +2804,7 @@ void Tracking::Track()
         }
 
     }
+    matching_times.push_back(TrackLocalMap_ms + TrackOthers_ms);
 
 #ifdef REGISTER_LOOP
     if (Stop()) {

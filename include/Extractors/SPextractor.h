@@ -59,7 +59,7 @@ public:
     enum {HARRIS_SCORE=0, FAST_SCORE=1 };
 
     SPextractor(int nfeatures, float scaleFactor, int nlevels,
-                 float iniThFAST, float minThFAST);
+                 float iniThFAST, float minThFAST, int pfeatures);
 
     // SPextractor(const SuperPointConfig &super_point_config);
 
@@ -116,6 +116,7 @@ protected:
     int nlevels;
     float iniThFAST;
     float minThFAST;
+    int pfeatures; //percentage of features to retain
 
     int ExtractSingleLayer(const cv::Mat &image, std::vector<cv::KeyPoint>& vKeyPoints, 
                             cv::Mat &localDescriptors);

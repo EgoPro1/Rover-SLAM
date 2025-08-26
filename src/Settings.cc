@@ -509,6 +509,7 @@ void Settings::readORB(cv::FileStorage &fSettings)
     nLevels_ = readParameter<int>(fSettings, "ORBextractor.nLevels", found);
     initThFAST_ = readParameter<int>(fSettings, "ORBextractor.iniThFAST", found);
     minThFAST_ = readParameter<int>(fSettings, "ORBextractor.minThFAST", found);
+    pFeatures_ = readParameter<int>(fSettings, "ORBextractor.pFeatures", found);
 }
 
 void Settings::readViewer(cv::FileStorage &fSettings)
@@ -725,7 +726,7 @@ ostream &operator<<(std::ostream &output, const Settings &settings)
     output << "\t-ORB number of scales: " << settings.nLevels_ << endl;
     output << "\t-Initial FAST threshold: " << settings.initThFAST_ << endl;
     output << "\t-Min FAST threshold: " << settings.minThFAST_ << endl;
-
+    output << "\t-Percentage of best features to retain: " << settings.pFeatures_ << endl;
     return output;
 }
 };

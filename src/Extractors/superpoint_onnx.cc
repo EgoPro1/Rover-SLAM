@@ -4,6 +4,7 @@
 int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
 {
     std::cout << "< - * -------- INITIAL ONNXRUNTIME ENV START -------- * ->" << std::endl;
+    onnx_times.clear();
     try
     {
         env0 = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "LightGlueDecoupleOnnxRunner Extractor");
@@ -61,7 +62,6 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
         std::cerr << "[ERROR] ONNXRuntime environment created failed : " << ex.what() << '\n';
         return EXIT_FAILURE;
     }
-    
     return EXIT_SUCCESS;
 }
 
@@ -146,7 +146,6 @@ int SuperPointOnnxRunner::Extractor_Inference(Configuration cfg , const cv::Mat&
                 std::cerr << "[ERROR] Inference output tensor is not a tensor or don't have value" << std::endl;
             }
         }
-        
         extractor_outputtensors.emplace_back(std::move(output_tensor));
 
         //std::cout << "[INFO] LightGlueDecoupleOnnxRunner Extractor inference finish ..." << std::endl;
@@ -189,7 +188,7 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
         
         float threshold = 0;
         
-        bool adaptivethresold = true;
+        bool adaptivethresold = false;
         if(adaptivethresold)
         {
             float sum = 0;
@@ -208,6 +207,20 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
         
             threshold = mean-0.6*std::sqrt(variance) -  0.02 / (1.0 + std::exp(-0.02 * (lastmatch-270)));
         }
+        //find cut-off threshold to get x% best scores
+        if(pfeat < 100 && pfeat > 0)
+        {   
+            float percentage = pfeat / 100.0f;
+            static std::vector<float> buffer;
+            buffer.assign(scores, scores + kpts_Shape[1]);
+
+            int index = static_cast<int>(percentage * kpts_Shape[1]) - 1;
+            if (index < 0) index = 0;
+
+            // Rearrange so that all elements before index_80 are >= element at index_80
+            std::nth_element(buffer.begin(), buffer.begin() + index, buffer.end(), std::greater<float>());
+            threshold = buffer[index];
+        }
         
         for(int i = 0; i < kpts_Shape[1]; i++)
         {
@@ -215,7 +228,6 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
             indic ++;
             
         }
-        
         int row = 0;
         cv::Mat mat1(indic,descriptors_Shape[2] ,CV_32F);
 
@@ -243,7 +255,7 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
         // }
         Descriptors = mat1;
 
-
+        //std::cout << "[INFO] Extractor postprocess operation completed successfully" << std::endl;
         //std::cout << "[INFO] Extractor postprocessing operation completed successfully" << std::endl;
     }
     catch(const std::exception& ex)
@@ -253,7 +265,6 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
 
    
 }
-
 
 float SuperPointOnnxRunner::GetMatchThresh()
 {
