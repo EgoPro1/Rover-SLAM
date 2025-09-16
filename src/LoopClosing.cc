@@ -3443,11 +3443,22 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
             //pActiveMap->PrintEssentialGraph();
             // Correct keyframes starting at map first keyframe
             list<KeyFrame*> lpKFtoCheck(pActiveMap->mvpKeyFrameOrigins.begin(),pActiveMap->mvpKeyFrameOrigins.end());
+            unordered_set<KeyFrame*> visitedKF;
 
             // 通过树的方式更新未参与全局优化的关键帧，一个关键帧与其父节点的共视点数最多，所以选其作为参考帧
             while(!lpKFtoCheck.empty())
             {
                 KeyFrame* pKF = lpKFtoCheck.front();
+
+                // Do not visit the same KeyFrame or its children twice to prevent infinite loops when a KF has its own parents as children
+                if (visitedKF.find(pKF) == visitedKF.end()) {
+                    visitedKF.insert(pKF);
+                }
+                else {
+                    lpKFtoCheck.pop_front();
+                    continue;
+                }
+                
                 const set<KeyFrame*> sChilds = pKF->GetChilds();
                 //cout << "---Updating KF " << pKF->mnId << " with " << sChilds.size() << " childs" << endl;
                 //cout << " KF mnBAGlobalForKF: " << pKF->mnBAGlobalForKF << endl;

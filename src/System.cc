@@ -196,8 +196,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
         loadedAtlas = true;
 
-        mpAtlas->CreateNewMap();
-
+        //mpAtlas->CreateNewMap();
+        mpAtlas->ChangeMap(mpAtlas->GetAllMaps()[0]);
         //clock_t timeElapsed = clock() - start;
         //unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000);
         //cout << "Binary file read in " << msElapsed << " ms" << endl;
@@ -587,12 +587,12 @@ void System::Shutdown()
 
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    /*if(mpViewer)
+    if(mpViewer)
     {
         mpViewer->RequestFinish();
         while(!mpViewer->isFinished())
             usleep(5000);
-    }*/
+    }
 
     // Wait until all thread have effectively stopped
     // 源代码这里注释掉了，但是不执行会有锁报错
@@ -613,7 +613,7 @@ void System::Shutdown()
 
     if(!mStrSaveAtlasToFile.empty())
     {
-        std::cout << "开始保存地图" << std::endl;
+        //std::cout << "开始保存地图" << std::endl;
         Verbose::PrintMess("Atlas saving to file " + mStrSaveAtlasToFile, Verbose::VERBOSITY_NORMAL);
         SaveAtlas(FileType::BINARY_FILE);
     }

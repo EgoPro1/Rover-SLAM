@@ -347,6 +347,7 @@ void Atlas::PreSave()
     // 3. 遍历所有地图，执行每个地图的预保存
     for (Map *pMi : mvpBackupMaps)
     {
+        lock_guard<mutex> lock(pMi->mMutexMapUpdate);
         if (!pMi || pMi->IsBad())
             continue;
 

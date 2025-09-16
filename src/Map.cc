@@ -402,7 +402,11 @@ void Map::PreSave(std::set<GeometricCamera *> &spCams)
 {
     int nMPWithoutObs = 0;  // 统计用
     // 1. 剔除一下无效观测
-    for (MapPoint *pMPi : mspMapPoints)
+    
+    std::set<MapPoint*> tmp_mspMapPoints1;
+    tmp_mspMapPoints1.insert(mspMapPoints.begin(), mspMapPoints.end());
+
+    for(MapPoint* pMPi : tmp_mspMapPoints1)
     {
         if (!pMPi || pMPi->isBad())
             continue;
@@ -433,7 +437,11 @@ void Map::PreSave(std::set<GeometricCamera *> &spCams)
     // Backup of MapPoints
     // 3. 保存一下对应的mp
     mvpBackupMapPoints.clear();
-    for (MapPoint *pMPi : mspMapPoints)
+    
+    std::set<MapPoint*> tmp_mspMapPoints2;
+    tmp_mspMapPoints2.insert(mspMapPoints.begin(), mspMapPoints.end());
+
+    for(MapPoint* pMPi : tmp_mspMapPoints2)
     {
         if (!pMPi || pMPi->isBad())
             continue;
