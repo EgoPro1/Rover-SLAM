@@ -621,6 +621,8 @@ void System::Shutdown()
     /*if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");*/
     mpTracker->OutputFETimes();
+    mpTracker->OutputTrackingTimes();
+    mpTracker->OutputMatchingTimes();
     mpTracker->OutputAvgNumofFeat();
 #ifdef REGISTER_TIMES
     mpTracker->PrintTimeStats();

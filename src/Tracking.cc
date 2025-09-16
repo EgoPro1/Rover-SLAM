@@ -680,26 +680,36 @@ void Tracking::OutputFETimes(){
         std::cout << "No feature extraction times recorded" << std::endl;
         return;
     }
-    if(matching_times.empty())
-    {
-        std::cout << "No matching times recorded" << std::endl;
-        return;
-    }    
     double total_fe_time = 0.0;
     for(double time : fe_times)
     {
         total_fe_time += time;
     }
     double average_fe_time = total_fe_time / fe_times.size();
-    double fps = 1000.0 / average_fe_time;
-    std::cout << "Feature extraction times (ms):" << std::endl;
-    //for(size_t i = 0; i < fe_times.size(); ++i)
-    //{
-    //    std::cout << "Frame " << i + 1 << ": " << fe_times[i] << " ms" << std::endl;
-    //}
-    std::cout << "Average time: " << average_fe_time << " ms" << std::endl;
-    std::cout << "FPS: " << fps << std::endl;
+    std::cout << "Average Feature extraction times:" << average_fe_time << " ms" << std::endl;
+}
 
+void Tracking::OutputTrackingTimes(){  
+    if(tracking_times.empty())
+    {
+        std::cout << "No tracking times recorded" << std::endl;
+        return;
+    }
+    double total_tracking_time = 0.0;
+    for(double time : tracking_times)
+    {
+        total_tracking_time += time;   
+    }
+    double average_tracking_time = total_tracking_time / tracking_times.size();
+    std::cout << "Average tracking times (ms):" << average_tracking_time << std::endl;
+}
+
+void Tracking::OutputMatchingTimes(){  
+    if(matching_times.empty())
+    {
+        std::cout << "No matching times recorded" << std::endl;
+        return;
+    }
     double total_matching_time = 0.0;
     for(double time : matching_times)
     {
@@ -2243,8 +2253,9 @@ void Tracking::Track()
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartPosePred = std::chrono::steady_clock::now();
 #endif
-        TrackLocalMap_ms = 0.0;
-        TrackOthers_ms = 0.0;
+        
+        
+        std::chrono::steady_clock::time_point time_TrackingStart = std::chrono::steady_clock::now();
         // Initial camera pose estimation using motion model or relocalization (if tracking is lost)
         // mbOnlyTracking等于false表示正常SLAM模式（定位+地图更新），mbOnlyTracking等于true表示仅定位模式
         // tracking 类构造时默认为false。在viewer中有个开关ActivateLocalizationMode，可以控制是否开启mbOnlyTracking
@@ -2264,7 +2275,6 @@ void Tracking::Track()
                 // Step 6.1 检查并更新上一帧被替换的MapPoints
                 // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
                 CheckReplacedInLastFrame();
-                std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                 // Step 6.2 运动模型是空的并且imu未初始化或刚完成重定位，跟踪参考关键帧；否则恒速模型跟踪
                 // 第一个条件,如果运动模型为空并且imu未初始化,说明是刚开始第一帧跟踪，或者已经跟丢了。
                 // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们用重定位帧来恢复位姿
@@ -2296,8 +2306,6 @@ void Tracking::Track()
                     }
                           // 根据恒速模型失败了，只能根据参考关键帧来跟踪
                 }
-                std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
-                TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                 // 新增了一个状态RECENTLY_LOST，主要是结合IMU看看能不能拽回来
                 // Step 6.3 如果经过跟踪参考关键帧、恒速模型跟踪都失败的话，并满足一定条件就要标记为RECENTLY_LOST或LOST
                 if (!bOK)
@@ -2411,7 +2419,6 @@ void Tracking::Track()
                 // mbVO为true表明此帧匹配了很少的MapPoints，少于10个，要跟丢
                 if(!mbVO)
                 {
-                    std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                     // In last frame we tracked enough MapPoints in the map
                     // Step 6.2 如果跟踪状态正常，使用恒速模型或参考关键帧跟踪
                     if(mbVelocity)
@@ -2425,8 +2432,6 @@ void Tracking::Track()
                         // 如果恒速模型不被满足,那么就只能够通过参考关键帧来跟踪
                         bOK = TrackReferenceKeyFrame();
                     }
-                    std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
-                    TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                 }
                 else
                 {
@@ -2451,10 +2456,7 @@ void Tracking::Track()
                     // Step 6.3 当运动模型有效的时候,根据运动模型计算位姿
                     if(mbVelocity)
                     {
-                        std::chrono::steady_clock::time_point tMatch0 = std::chrono::steady_clock::now();
                         bOKMM = TrackWithMotionModel();
-                        std::chrono::steady_clock::time_point tMatch1 = std::chrono::steady_clock::now();
-                        TrackOthers_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMatch1 - tMatch0).count();
                         // 将恒速模型跟踪结果暂存到这几个变量中，因为后面重定位会改变这些变量
                         vpMPsMM = mCurrentFrame.mvpMapPoints;
                         vbOutMM = mCurrentFrame.mvbOutlier;
@@ -2545,8 +2547,6 @@ void Tracking::Track()
             if(bOK && !mbVO)
                 bOK = TrackLocalMap();
         }
-        std::chrono::steady_clock::time_point tMap1 = std::chrono::steady_clock::now();
-        TrackLocalMap_ms = std::chrono::duration_cast<std::chrono::duration<double,std::milli>>(tMap1 - tMap0).count();
         // 到此为止跟踪确定位姿阶段结束，下面开始做收尾工作和为下一帧做准备
 
         // 查看到此为止时的两个状态变化
@@ -2623,7 +2623,12 @@ void Tracking::Track()
                     mLastBias = mCurrentFrame.mImuBias;  // 没啥用，后面会重新赋值后传给普通帧
             }
         }
-
+        
+        std::chrono::steady_clock::time_point time_TrackingEnd = std::chrono::steady_clock::now();
+        double totalTracktime = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_TrackingEnd - time_TrackingStart).count();
+        tracking_times.push_back(totalTracktime);
+        matching_times.push_back(mspmatcher.GetInferenceTime());
+        mspmatcher.ResetInferenceTimer();
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_EndLMTrack = std::chrono::steady_clock::now();
 
@@ -2804,8 +2809,6 @@ void Tracking::Track()
         }
 
     }
-    matching_times.push_back(TrackLocalMap_ms + TrackOthers_ms);
-
 #ifdef REGISTER_LOOP
     if (Stop()) {
 

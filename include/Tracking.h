@@ -182,10 +182,13 @@ public:
     bool mbWriteStats;
 
     std::vector<double> fe_times;
+    std::vector<double> tracking_times;
     std::vector<double> matching_times;
     std::vector<int> feat_nums;
     
     void OutputFETimes();
+    void OutputTrackingTimes();
+    void OutputMatchingTimes();
     void OutputAvgNumofFeat();
 #ifdef REGISTER_TIMES
     void LocalMapStats2File();
@@ -273,12 +276,6 @@ protected:
     ORBextractor* mpIniORBextractor;
 
     //Extractor
-    
-    //Matching Times
-
-    double TrackLocalMap_ms;
-    double TrackOthers_ms;
-
 
     //BoW
     ORBVocabulary* mpORBVocabulary;

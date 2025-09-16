@@ -362,7 +362,12 @@ int SPmatcher::MatchingPoints_onnx(std::vector<cv::Point2f> kpts0, std::vector<c
     auto normal_kpts0 = featureMatcher->Matcher_PreProcess(kpts0 , rows , cols);
     auto normal_kpts1 = featureMatcher->Matcher_PreProcess(kpts1 , rows , cols);
     Configuration cfg;
+    std::chrono::steady_clock::time_point t_Start = std::chrono::steady_clock::now();
+
     std::vector<Ort::Value> output = featureMatcher->Matcher_Inference(normal_kpts0, normal_kpts1, desc0, desc1);
+
+    std::chrono::steady_clock::time_point t_End = std::chrono::steady_clock::now();
+    InferenceTime_ms += std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End - t_Start).count();
     int size;
     //std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>> output_end;
     std::vector<int> vnMatches12;
@@ -400,7 +405,12 @@ int SPmatcher::MatchingPoints_onnx(std::vector<cv::Point2f> kpts0, std::vector<c
     }
 
     Configuration cfg;
+    std::chrono::steady_clock::time_point t_Start = std::chrono::steady_clock::now();
+
     std::vector<Ort::Value> output = featureMatcher->Matcher_Inference(normal_kpts0, normal_kpts1, descriptors_data0, descriptors_data1);
+
+    std::chrono::steady_clock::time_point t_End = std::chrono::steady_clock::now();
+    InferenceTime_ms += std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End - t_Start).count();
     //std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>> output_end;
     int size;
     // std::vector<int> vnMatches12;
@@ -449,7 +459,12 @@ int SPmatcher::MatchingPoints_onnx(std::vector<cv::KeyPoint> kpts0, const std::v
     }
 
     Configuration cfg;
+    std::chrono::steady_clock::time_point t_Start = std::chrono::steady_clock::now();
+
     std::vector<Ort::Value> output = featureMatcher->Matcher_Inference(normal_kpts0, normal_kpts1, descriptors_data0, descriptors_data1);
+
+    std::chrono::steady_clock::time_point t_End = std::chrono::steady_clock::now();
+    InferenceTime_ms += std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End - t_Start).count();
     //std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>> output_end;
     // std::vector<int> vnMatches12;
     // vnMatches12 = std::vector<int>(normal_kpts0.size(), -1);
@@ -533,7 +548,13 @@ int SPmatcher::MatchingPoints_onnx(Frame &f1, Frame &f2, vector<int> &vnMatches1
             descriptors_data2[i*cols2 + j] = row_data[j];
         }
     }
+    std::chrono::steady_clock::time_point t_Start = std::chrono::steady_clock::now();
+
     std::vector<Ort::Value> output = featureMatcher->Matcher_Inference(normal_kpts1, normal_kpts2, descriptors_data1, descriptors_data2);
+
+    std::chrono::steady_clock::time_point t_End = std::chrono::steady_clock::now();
+    InferenceTime_ms += std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(t_End - t_Start).count();
+    
     std::pair<std::vector<cv::Point2f>, std::vector<cv::Point2f>> output_end;
     int size  = featureMatcher->Matcher_PostProcess_fused(output, kpts1 , kpts2, vnMatches12);
 
@@ -2198,6 +2219,15 @@ float SPmatcher::DescriptorDistance_sp(const cv::Mat &a, const cv::Mat &b)
     float dist = (float)cv::norm(a, b, cv::NORM_L2);
 
     return dist;
+}
+void SPmatcher::ResetInferenceTimer()
+{
+    InferenceTime_ms = 0.0;
+}
+
+double SPmatcher::GetInferenceTime() const
+{
+    return InferenceTime_ms;
 }
 
 }

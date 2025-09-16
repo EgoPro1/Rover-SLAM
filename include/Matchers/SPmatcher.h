@@ -118,7 +118,7 @@ namespace ORB_SLAM3
         int Fuse_onnx(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const float th, const bool bRight = false);
         // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
         int Fuse(KeyFrame* pKF, Sophus::Sim3f &Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
-
+        
     public:
 
         static const float TH_LOW;
@@ -126,6 +126,8 @@ namespace ORB_SLAM3
         static const int HISTO_LENGTH;
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
+        double GetInferenceTime() const;
+        void ResetInferenceTimer();
         LightGlueDecoupleOnnxRunner* featureMatcher;
     protected:
         float RadiusByViewingCos(const float &viewCos);
@@ -138,7 +140,7 @@ namespace ORB_SLAM3
     private:
         // SuperGlue superglue;
         // SuperGlueConfig _superglue_config;
-        
+        double InferenceTime_ms;
     };
 
     typedef std::shared_ptr<SPmatcher> SPmatcherPtr;
