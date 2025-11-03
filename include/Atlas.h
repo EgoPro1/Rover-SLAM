@@ -133,7 +133,7 @@ public:
 
     map<long unsigned int, KeyFrame*> GetAtlasKeyframes();
 
-    void SetKeyFrameDababase(KeyFrameDatabase* pKFDB);
+    void SetKeyFrameDatabase(KeyFrameDatabase* pKFDB);
     KeyFrameDatabase* GetKeyFrameDatabase();
 
     void SetORBVocabulary(ORBVocabulary* pORBVoc);

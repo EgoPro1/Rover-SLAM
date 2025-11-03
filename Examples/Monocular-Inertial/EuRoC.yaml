@@ -4,8 +4,8 @@
 # Camera Parameters. Adjust them!
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
-# System.LoadAtlasFromFile: "Session_MH01_MH02_MH03_Stereo60_Pseudo"
-# System.SaveAtlasToFile: "Session_MH01_MH02_MH03_Stereo60_Pseudo"
+#System.LoadAtlasFromFile: "Session_MH01_MH02_MH03_Mi"
+#System.SaveAtlasToFile: "Session_MH01_MH02_MH03_Mi"
 
 Camera.type: "PinHole"
 
@@ -54,7 +54,7 @@ IMU.Frequency: 200.0
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
-ORBextractor.pFeatures: 40 # Percentage of features to retain after filtering
+ORBextractor.pFeatures: 75 # Percentage of features to retain after filtering
 
 # ORB Extractor: Number of features per image
 ORBextractor.nFeatures: 1000 # 1000

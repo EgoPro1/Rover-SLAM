@@ -24,6 +24,7 @@
 #include "Optimizer.h"
 #include "ORBmatcher.h"
 #include "G2oTypes.h"
+#include "scoped_timer.h"
 
 #include<mutex>
 #include<thread>
@@ -99,6 +100,7 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
  */
 void LoopClosing::Run()
 {
+    ScopedTimer timer("LoopClosing::Run");
     mbFinished =false;
 
     // 线程主循环

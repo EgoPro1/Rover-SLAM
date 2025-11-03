@@ -115,10 +115,10 @@ SPextractor::SPextractor(int _nfeatures, float _scaleFactor, int _nlevels,
         mvScaleFactor[i]=mvScaleFactor[i-1]*scaleFactor;
         mvLevelSigma2[i]=mvScaleFactor[i]*mvScaleFactor[i];
     }
-    for(int i = 0; i < mvLevelSigma2.size(); i++)
-    {
-        cout<<mvLevelSigma2[i]<<" assd";
-    }
+    // for(int i = 0; i < mvLevelSigma2.size(); i++)
+    // {
+    //     cout<<mvLevelSigma2[i]<<" assd";
+    // }
     cout<<endl;
     mvInvScaleFactor.resize(nlevels);
     mvInvLevelSigma2.resize(nlevels);

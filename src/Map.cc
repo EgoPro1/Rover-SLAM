@@ -481,6 +481,7 @@ void Map::PreSave(std::set<GeometricCamera *> &spCams)
  */
 void Map::PostLoad(KeyFrameDatabase *pKFDB, ORBVocabulary *pORBVoc, SPVocabulary *pSPVoc /*, map<long unsigned int, KeyFrame*>& mpKeyFrameId*/, map<unsigned int, GeometricCamera *> &mpCams)
 {
+    
     std::copy(mvpBackupMapPoints.begin(), mvpBackupMapPoints.end(), std::inserter(mspMapPoints, mspMapPoints.begin()));
     std::copy(mvpBackupKeyFrames.begin(), mvpBackupKeyFrames.end(), std::inserter(mspKeyFrames, mspKeyFrames.begin()));
 

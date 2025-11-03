@@ -30,7 +30,7 @@
 #include <thread>
 #include <include/CameraModels/Pinhole.h>
 #include <include/CameraModels/KannalaBrandt8.h>
-
+#include "scoped_timer.h"
 namespace ORB_SLAM3
 {
 
@@ -543,6 +543,7 @@ void Frame::ExtractORB(int flag, const cv::Mat &im, const int x0, const int x1)
 
 void Frame::ExtractKeyPoints(int flag, const cv::Mat &im, const int x0, const int x1)
 {
+    ScopedTimer timer("Frame::ExtractKeyPoints");
     vector<int> vLapping = {x0,x1};
     if(flag==0){
         monoLeft = (*mpExtractorLeft)(im,mvKeys,mDescriptors);

@@ -28,6 +28,7 @@
 #include<mutex>
 #include<chrono>
 #include <Eigen/Dense>
+#include "scoped_timer.h"
 namespace ORB_SLAM3
 {
 
@@ -94,6 +95,7 @@ void LocalMapping::SetTracker(Tracking *pTracker)
  */
 void LocalMapping::Run()
 {
+    ScopedTimer timer("LocalMapping::Run");
     // 标记状态，表示当前run函数正在运行，尚未结束
     mbFinished = false;
     
@@ -389,6 +391,7 @@ bool LocalMapping::CheckNewKeyFrames()
  */
 void LocalMapping::ProcessNewKeyFrame()
 {
+    ScopedTimer timer("LocalMapping::ProcessNewKeyFrame");
     // Step 1：从缓冲队列中取出一帧关键帧
     // 该关键帧队列是Tracking线程向LocalMapping中插入的关键帧组成
     {
@@ -461,6 +464,7 @@ void LocalMapping::EmptyQueue()
  */
 void LocalMapping::MapPointCulling()
 {
+    ScopedTimer timer("LocalMapping::MapPointCulling");
     // Check Recent Added MapPoints
     list<MapPoint*>::iterator lit = mlpRecentAddedMapPoints.begin();
     const unsigned long int nCurrentKFid = mpCurrentKeyFrame->mnId;
@@ -516,6 +520,7 @@ void LocalMapping::MapPointCulling()
  */
 void LocalMapping::CreateNewMapPoints()
 {
+    ScopedTimer timer("LocalMapping::CreateNewMapPoints");
     // Retrieve neighbor keyframes in covisibility graph
     // nn表示搜索最佳共视关键帧的数目
     // 不同传感器下要求不一样,单目的时候需要有更多的具有较好共视关系的关键帧来建立地图
@@ -575,7 +580,6 @@ void LocalMapping::CreateNewMapPoints()
 
     // Step 2：遍历相邻关键帧vpNeighKFs
 
-    float matchsum = 0;
     for(size_t i=0; i<vpNeighKFs.size(); i++)
     {
         
@@ -629,17 +633,9 @@ void LocalMapping::CreateNewMapPoints()
 
         // 通过极线约束的方式找到匹配点（且该点还没有成为MP，注意非单目已经生成的MP这里直接跳过不做匹配，所以最后并不会覆盖掉特征点对应的MP）
         //matcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
-        auto start = std::chrono::high_resolution_clock::now();
         //cout<<"step4。4。0: "<<mlNewKeyFrames.size()<<endl;
-        int size = mspmatcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
-        matchsum += size;
+        mspmatcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,vMatchedIndices,false,bCoarse);
         
-        //cout<<"step4。4。1: "<<mlNewKeyFrames.size()<<endl;
-        if(mlNewKeyFrames.size() == 1){
-           cout<<"mlNewKeyFrames.size(): "<<mlNewKeyFrames.front()->mnFrameId<<endl;
-        }
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end - start;
         //cout<<"triangulation size: "<<size<<endl;
         //std::cout << "代码执行时间为: " << duration.count() << " 秒" << std::endl;
         // 取出与mpCurrentKeyFrame共视关键帧的内外参信息
@@ -1047,6 +1043,7 @@ void LocalMapping::CreateNewMapPoints()
  */
 void LocalMapping::SearchInNeighbors()
 {
+    ScopedTimer timer("LocalMapping::SearchInNeighbors");
     // Retrieve neighbor keyframes
     // Step 1：获得当前关键帧在共视图中权重排名前nn的邻接关键帧
     // 开始之前先定义几个概念
@@ -1309,6 +1306,7 @@ void LocalMapping::InterruptBA()
  */
 void LocalMapping::KeyFrameCulling()
 {
+    ScopedTimer timer("LocalMapping::KeyFrameCulling");
     // Check redundant keyframes (only local keyframes)
     // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
     // in at least other 3 keyframes (in the same or finer scale)
@@ -1691,6 +1689,7 @@ bool LocalMapping::isFinished()
  */
 void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
 {
+    ScopedTimer timer("LocalMapping::InitializeIMU");
     cout<<"InitializeIMU"<<endl;
     // 1. 将所有关键帧放入列表及向量里，且查看是否满足初始化条件
     if (mbResetRequested)

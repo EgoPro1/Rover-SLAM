@@ -21,6 +21,8 @@
 #include "KeyFrame.h"
 #include "Thirdparty/DBoW3/src/BowVector.h"
 #include "Thirdparty/DBoW3/src/DBoW3.h"
+#include "scoped_timer.h"
+
 #include <mutex>
 
 using namespace std;
@@ -28,7 +30,7 @@ using namespace std;
 namespace ORB_SLAM3
 {
 
-// 构造函数
+// Constructor
 KeyFrameDatabase::KeyFrameDatabase(const SPVocabulary &voc) : mpVoc(&voc)
 {
     mvInvertedFile.resize(voc.size());
@@ -657,6 +659,7 @@ bool compFirst(const pair<float, KeyFrame *> &a, const pair<float, KeyFrame *> &
 
 void KeyFrameDatabase::DetectNBestCandidates_sp(KeyFrame *pKF, vector<KeyFrame *> &vpLoopCand, vector<KeyFrame *> &vpMergeCand, int nNumCandidates)
 {
+    ScopedTimer timer("KeyFrameDatabase::DetectNBestCandidates_sp");
     // Step 1统计与当前关键帧有相同单词的关键帧
     list<KeyFrame *> lKFsSharingWords;
     // set<KeyFrame*> spInsertedKFsSharing;
@@ -1044,12 +1047,23 @@ void KeyFrameDatabase::DetectNBestCandidates(KeyFrame *pKF, vector<KeyFrame *> &
 
 vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Map *pMap)
 {
+    ScopedTimer timer("KeyFrameDatabase::DetectRelocalizationCandidates");
     list<KeyFrame *> lKFsSharingWords;
-
+    // Sanity check (passed)
+    // std::cout << "[Reloc] mvInvertedFile size: " << mvInvertedFile.size() << "\n";
+    // int probes = 0;
+    // for (auto it = F->mBow3Vec.begin(); it != F->mBow3Vec.end() && probes < 5; ++it, ++probes) 
+    // {
+    //     int wid = it->first;
+    //     if (wid >= 0 && wid < (int)mvInvertedFile.size())
+    //         std::cout << "[Reloc] word " << wid << " bin size: " << mvInvertedFile[wid].size() << "\n";
+    //     else
+    //         std::cout << "[Reloc] word " << wid << " out-of-range!\n";
+    // }
     // Search all keyframes that share a word with current frame
     {
         unique_lock<mutex> lock(mMutex);
-
+        
         for (DBoW3::BowVector::const_iterator vit = F->mBow3Vec.begin(), vend = F->mBow3Vec.end(); vit != vend; vit++)
         {
             list<KeyFrame *> &lKFs = mvInvertedFile[vit->first];
@@ -1068,8 +1082,10 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
         }
     }
     if (lKFsSharingWords.empty())
+    {   
+        std::cout << "[Reloc] empty sharing words: " << "\n";
         return vector<KeyFrame *>();
-
+    }
     // Only compare against those keyframes that share enough words
     int maxCommonWords = 0;
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
@@ -1083,7 +1099,6 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     list<pair<float, KeyFrame *>> lScoreAndMatch;
 
     int nscores = 0;
-
     // Compute similarity score.
     for (list<KeyFrame *>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
     {
@@ -1099,7 +1114,10 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     }
 
     if (lScoreAndMatch.empty())
+    {
+        std::cout << "[Reloc] empty score and match: " << "\n";
         return vector<KeyFrame *>();
+    }
 
     list<pair<float, KeyFrame *>> lAccScoreAndMatch;
     float bestAccScore = 0;
@@ -1132,13 +1150,15 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
     }
 
     // Return all those keyframes with a score higher than 0.75*bestScore
-    float minScoreToRetain = 0.60f * bestAccScore;//0.75
+    float minScoreToRetain = 0.75f * bestAccScore;//0.75
     set<KeyFrame *> spAlreadyAddedKF;
     vector<KeyFrame *> vpRelocCandidates;
     vpRelocCandidates.reserve(lAccScoreAndMatch.size());
+    int filteredByMap = 0;
     for (list<pair<float, KeyFrame *>>::iterator it = lAccScoreAndMatch.begin(), itend = lAccScoreAndMatch.end(); it != itend; it++)
     {
         const float &si = it->first;
+        
         if (si > minScoreToRetain)
         {
             KeyFrame *pKFi = it->second;
@@ -1151,7 +1171,10 @@ vector<KeyFrame *> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F, Ma
             }
         }
     }
-
+    if(vpRelocCandidates.empty())
+    {
+        std::cout << "[Reloc] empty reloc candidates: " << "\n";
+    }
     return vpRelocCandidates;
 }
 
@@ -1170,6 +1193,8 @@ void KeyFrameDatabase::SetSPVocabulary(SPVocabulary *pSPVoc)
     SPVocabulary **ptr;
     ptr = (SPVocabulary **)(&mpVoc);
     *ptr = pSPVoc;
+    size_t voc_size = mpVoc->size();
+    std::cout << "[SetSPVocabulary] Vocabulary size: " << voc_size << std::endl;
     mvInvertedFile.clear();
     mvInvertedFile.resize(mpVoc->size());
 }

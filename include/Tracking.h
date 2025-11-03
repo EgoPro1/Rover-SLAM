@@ -53,6 +53,12 @@ class LoopClosing;
 class System;
 class Settings;
 
+enum class TrackFunc : int { MotionModel=0, RefKeyFrame=1, LocalMap=2, Reloc=3, COUNT=4 };
+struct FuncStats {
+    size_t calls = 0;
+    size_t matches_pre = 0;     // raw matches returned by the matcher
+    size_t matches_inliers = 0; // matches after pose opt / RANSAC outlier rejection
+};
 class Tracking
 {  
 
@@ -62,7 +68,9 @@ public:
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, Settings* settings, const string &_nameSeq=std::string());
 
     ~Tracking();
-
+    
+    void OutputMatchStats() const;
+    void OuputTrackLostCount() const;
     // Parse the config file
     bool ParseCamParamFile(cv::FileStorage &fSettings);
     bool ParseORBParamFile(cv::FileStorage &fSettings);
@@ -186,9 +194,6 @@ public:
     std::vector<double> matching_times;
     std::vector<int> feat_nums;
     
-    void OutputFETimes();
-    void OutputTrackingTimes();
-    void OutputMatchingTimes();
     void OutputAvgNumofFeat();
 #ifdef REGISTER_TIMES
     void LocalMapStats2File();
@@ -245,6 +250,10 @@ protected:
 
     bool mbMapUpdated;
 
+    // Matching statistics
+    void UpdateMatchStats(TrackFunc f, int pre, int inl);
+
+    
     // Imu preintegration from last frame
     IMU::Preintegrated *mpImuPreintegratedFromLastKF;
 
@@ -355,6 +364,9 @@ protected:
     list<MapPoint*> mlpTemporalPoints;
 
     //int nMapChangeIndex;
+    
+    FuncStats mFuncStats[(int)TrackFunc::COUNT];
+    uint64_t track_lost_count = 0;
 
     int mnNumDataset;
 

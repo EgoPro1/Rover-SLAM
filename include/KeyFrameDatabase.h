@@ -59,8 +59,8 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     KeyFrameDatabase(){}
-    KeyFrameDatabase(const ORBVocabulary &voc);
-    //KeyFrameDatabase(const SPVocabulary &voc);
+    //KeyFrameDatabase(const ORBVocabulary &voc);
+    KeyFrameDatabase(const SPVocabulary &voc);
     void add(KeyFrame* pKF);
     void add_sp(KeyFrame* pKF);
     void erase(KeyFrame* pKF);

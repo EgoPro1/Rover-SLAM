@@ -20,6 +20,7 @@
 
 #include "System.h"
 #include "Converter.h"
+#include "scoped_timer.h"
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
@@ -190,14 +191,28 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
             exit(-1);
         }
         //mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
-
-        //cout << "KF in DB: " << mpKeyFrameDatabase->mnNumKFs << "; words: " << mpKeyFrameDatabase->mnNumWords << endl;
-
         loadedAtlas = true;
 
         //mpAtlas->CreateNewMap();
         mpAtlas->ChangeMap(mpAtlas->GetAllMaps()[0]);
+        int bowcomputed = 0;
+        int kfcounted = 0;
+        for (auto *pKF : mpAtlas->GetAllKeyFrames())
+        {
+            if (!pKF || pKF->isBad()) continue;
+            kfcounted++;
+
+            // Ensure BoW exists & is built with the SAME vocab loaded
+            if (pKF->mBowVec.empty())
+            {
+                pKF->ComputeBoW3();
+                bowcomputed++;
+            }
+            // Add to DB
+            mpKeyFrameDatabase->add(pKF);
+        }
+        cout << "[INIT] KeyFrames couted: " << kfcounted 
+            << ", BoW computed: " << bowcomputed <<endl;
         //clock_t timeElapsed = clock() - start;
         //unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000);
         //cout << "Binary file read in " << msElapsed << " ms" << endl;
@@ -620,10 +635,10 @@ void System::Shutdown()
 
     /*if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");*/
-    mpTracker->OutputFETimes();
-    mpTracker->OutputTrackingTimes();
-    mpTracker->OutputMatchingTimes();
+    //ScopedTimer::write_to_csv("/tmp/event_log.csv");
     mpTracker->OutputAvgNumofFeat();
+    mpTracker->OutputMatchStats();
+    mpTracker->OuputTrackLostCount();
 #ifdef REGISTER_TIMES
     mpTracker->PrintTimeStats();
 #endif
@@ -1584,8 +1599,8 @@ bool System::LoadAtlas(int type)
             return false; // Both are differents
         }
 
-        // 加载对应数据
-        mpAtlas->SetKeyFrameDababase(mpKeyFrameDatabase);
+        // Load the corresponding data
+        mpAtlas->SetKeyFrameDatabase(mpKeyFrameDatabase);
         //mpAtlas->SetORBVocabulary(mpVocabulary);
         mpAtlas->SetSPVocabulary(mpVocabulary_sp);
         mpAtlas->PostLoad();

@@ -237,7 +237,6 @@ bool MLPnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlier
         // Check inliers
         // 卡方检验内点，和EPnP基本类似
         CheckInliers();
-
         if (mnInliersi >= mRansacMinInliers)
         {
             // If it is the best solution so far, save it

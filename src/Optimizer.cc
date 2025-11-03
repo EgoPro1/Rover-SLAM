@@ -34,6 +34,7 @@
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_dense.h"
 #include "G2oTypes.h"
 #include "Converter.h"
+#include "scoped_timer.h"
 
 #include <mutex>
 
@@ -54,6 +55,7 @@ bool sortByVal(const pair<MapPoint *, int> &a, const pair<MapPoint *, int> &b)
  */
 int Optimizer::PoseOptimization(Frame *pFrame)
 {
+    ScopedTimer timer("Optimizer::PoseOptimization");
     // 该优化函数主要用于Tracking线程中：运动跟踪、参考帧跟踪、地图跟踪、重定位
 
     // Step 1：构造g2o优化器, BlockSolver_6_3表示：位姿 _PoseDim 为6维，路标点 _LandmarkDim 是3维
@@ -415,6 +417,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
  */
 int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit)
 {
+    ScopedTimer timer("Optimizer::PoseInertialOptimizationLastKeyFrame");
     // 1. 创建g2o优化器，初始化顶点和边
     // 构建一个稀疏求解器
     g2o::SparseOptimizer optimizer;
@@ -982,6 +985,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
  */
 int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
 {
+    ScopedTimer timer("Optimizer::PoseInertialOptimizationLastFrame");
     // Step 1：创建g2o优化器，初始化顶点和边
     // 构建一个稀疏求解器
     g2o::SparseOptimizer optimizer;
@@ -1739,6 +1743,7 @@ Eigen::MatrixXd Optimizer::Marginalize(const Eigen::MatrixXd &H, const int &star
  */
 void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int &num_fixedKF, int &num_OptKF, int &num_MPs, int &num_edges)
 {
+    ScopedTimer timer("Optimizer::LocalBundleAdjustment");
     // 该优化函数用于LocalMapping线程的局部BA优化
     // Local KeyFrames: First Breath Search from Current Keyframe
     list<KeyFrame *> lLocalKeyFrames;
@@ -2204,6 +2209,7 @@ void Optimizer::LocalInertialBA(
     KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int &num_fixedKF, int &num_OptKF,
     int &num_MPs, int &num_edges, bool bLarge, bool bRecInit)
 {
+    ScopedTimer timer("Optimizer::LocalInertialBA");
     // Step 1. 确定待优化的关键帧们
     Map *pCurrentMap = pKF->GetMap();
 
@@ -3238,6 +3244,7 @@ void Optimizer::FullInertialBA(
     Map *pMap, int its, const bool bFixLocal, const long unsigned int nLoopId, bool *pbStopFlag,
     bool bInit, float priorG, float priorA, Eigen::VectorXd *vSingVal, bool *bHess)
 {
+    ScopedTimer timer("Optimizer::FullInertialBA");
     // 获取地图里所有mp与kf，以及最大kf的id
     long unsigned int maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
@@ -3689,6 +3696,7 @@ void Optimizer::InertialOptimization(
     Map *pMap, Eigen::Matrix3d &Rwg, double &scale, Eigen::Vector3d &bg, Eigen::Vector3d &ba, bool bMono,
     Eigen::MatrixXd &covInertial, bool bFixedVel, bool bGauss, float priorG, float priorA)
 {
+    ScopedTimer timer("Optimizer::InertialOptimization1");
     Verbose::PrintMess("inertial optimization", Verbose::VERBOSITY_NORMAL);
     int its = 200;
     long unsigned int maxKFid = pMap->GetMaxKFid();
@@ -3891,6 +3899,7 @@ void Optimizer::InertialOptimization(
  */
 void Optimizer::InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vector3d &ba, float priorG, float priorA)
 {
+    ScopedTimer timer("Optimizer::InertialOptimization2");
     int its = 200; // Check number of iterations
     long unsigned int maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
@@ -4066,6 +4075,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vect
  */
 void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &scale)
 {
+    ScopedTimer timer("Optimizer::InertialOptimization3");
     int its = 10;
     long unsigned int maxKFid = pMap->GetMaxKFid();
     const vector<KeyFrame *> vpKFs = pMap->GetAllKeyFrames();
@@ -5195,6 +5205,7 @@ void Optimizer::OptimizeEssentialGraph4DoF(
 void Optimizer::LocalBundleAdjustment(
     KeyFrame *pMainKF, vector<KeyFrame *> vpAdjustKF, vector<KeyFrame *> vpFixedKF, bool *pbStopFlag)
 {
+    ScopedTimer timer("Optimizer::LocalBundleAdjustment");
     bool bShowImages = false;
 
     vector<MapPoint *> vpMPs;

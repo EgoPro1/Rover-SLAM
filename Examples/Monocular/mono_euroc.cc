@@ -80,7 +80,22 @@ int main(int argc, char **argv)
     int fps = 20;
     float dT = 1.f/fps;
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+    std::string strSettingsFile = argv[2];
+    cv::FileStorage fsSettings(strSettingsFile, cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+        std::cerr << "Failed to open settings file at: " << strSettingsFile << std::endl;
+        return 1;
+    }
+    std::string atlasFile;
+    fsSettings["System.LoadAtlasFromFile"] >> atlasFile;
+    bool hasAtlas = (atlasFile.length() > 0);
+
     ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::MONOCULAR, true);
+
+    if (hasAtlas)
+        SLAM.ActivateLocalizationMode();
+
     float imageScale = SLAM.GetImageScale();
 
     double t_resize = 0.f;

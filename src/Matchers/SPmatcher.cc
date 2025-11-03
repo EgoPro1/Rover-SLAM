@@ -6,6 +6,7 @@
 #include "Matchers/SPmatcher.h"
 #include <opencv2/core.hpp>
 #include <opencv2/core/eigen.hpp>
+#include "scoped_timer.h"
 using namespace std;
 
 namespace ORB_SLAM3
@@ -727,6 +728,7 @@ int SPmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f>
 
 int SPmatcher::SearchByProjection(Frame &CurrentFrame, Frame &LastFrame, const float th, const bool bMono)
 {
+    
     int nmatches = 0;
     const Sophus::SE3f Tcw = CurrentFrame.GetPose();
     const Eigen::Vector3f twc = Tcw.inverse().translation();
@@ -900,6 +902,7 @@ int SPmatcher::SearchByProjection(Frame &CurrentFrame, Frame &LastFrame, const f
 
 int SPmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<MapPoint*> &sAlreadyFound, const float th, const int ORBdist)
 {
+    ScopedTimer timer("SPmatcher::SearchByProjection");
     int nmatches = 0;
     std::vector<int> vnMatches12;
     nmatches = MatchingPoints_onnx(CurrentFrame.mvKeys, pKF->mvKeys, CurrentFrame.mDescriptors, pKF->mDescriptors, vnMatches12);
@@ -999,6 +1002,7 @@ int SPmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set<
 
 int SPmatcher::SearchBySP(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches)
 {
+    ScopedTimer timer("SPmatcher::SearchBySP-KF-F");
     const std::vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
     vpMapPointMatches = std::vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
 
@@ -1028,6 +1032,7 @@ int SPmatcher::SearchBySP(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMap
 
 int SPmatcher::SearchBySP(Frame &F, const std::vector<MapPoint*> &vpMapPoints)
 {
+    ScopedTimer timer("SPmatcher::SearchBySP-F");
     std::cout << vpMapPoints.size() <<std::endl;
     std::cout << F.mDescriptors.rows << std::endl;
 
@@ -1082,6 +1087,7 @@ int SPmatcher::SearchBySP(Frame &F, const std::vector<MapPoint*> &vpMapPoints)
 
 int SPmatcher::SearchBySP(Frame &CurrentFrame, Frame &LastFrame)
 {
+    ScopedTimer timer("SPmatcher::SearchBySP-F-F");
     vector<cv::Point2f> vbPrevMatched;
     vector<int> vnMatches1;
     int size = MatchingPoints_onnx(CurrentFrame, LastFrame, vnMatches1);
@@ -1113,6 +1119,7 @@ int SPmatcher::SearchBySP(Frame &CurrentFrame, Frame &LastFrame)
 }
 
 int SPmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints, const int th){
+    ScopedTimer timer("SPmatcher::SearchByProjection");
     int nmatches = 0;
     int nullnum = 0;
     int numObservations = 0;
@@ -1202,6 +1209,7 @@ int SPmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoints
 }
 int SPmatcher::SearchByProjection1(Frame &F, const vector<MapPoint*> &vpMapPoints, const float th, const bool bFarPoints, const float thFarPoints)
 {
+        ScopedTimer timer("SPmatcher::SearchByProjection1");
         int nmatches=0, left = 0, right = 0;
 
         // 如果 th！=1 (RGBD 相机或者刚刚进行过重定位), 需要扩大范围搜索
@@ -1433,7 +1441,7 @@ int SPmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2,
 
 int SPmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12,vector<cv::DMatch>& vmatches)
     {
-
+        ScopedTimer timer("SPmatcher::SearchByBoW");
         // Step 1 分别取出两个关键帧的特征点、BoW 向量、地图点、描述子
         const vector<cv::KeyPoint> &vKeysUn1 = pKF1->mvKeysUn;
         const DBoW3::FeatureVector &vFeatVec1 = pKF1->mFeat3Vec;
@@ -1556,6 +1564,7 @@ int SPmatcher::SearchByBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &v
 
 int SPmatcher::SearchByBoWSP(KeyFrame* pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches12, vector<cv::DMatch> & vmatches)
 {
+    ScopedTimer timer("SPmatcher::SearchByBoWSP");
     const vector<MapPoint*> vpMapPoints1 = pKF1->GetMapPointMatches();
     const vector<MapPoint*> vpMapPoints2 = pKF2->GetMapPointMatches();
     int nmatches = 0;
@@ -1591,6 +1600,7 @@ int SPmatcher::SearchByBoWSP(KeyFrame* pKF1, KeyFrame *pKF2, vector<MapPoint *> 
 int SPmatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3<float> &Scw, const std::vector<MapPoint*> &vpPoints, const std::vector<KeyFrame*> &vpPointsKFs,
                                        std::vector<MapPoint*> &vpMatched, std::vector<KeyFrame*> &vpMatchedKF, int th, float ratioHamming)
 {
+        ScopedTimer timer("SPmatcher::SearchByProjection");
         const float &fx = pKF->fx;
         const float &fy = pKF->fy;
         const float &cx = pKF->cx;
@@ -1702,6 +1712,7 @@ int SPmatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3<float> &Scw, const
 }
 int SPmatcher::SearchByBoWSP(KeyFrame* pKF, Frame &F, vector<MapPoint*> &vpMapPointMatches)
 {
+    ScopedTimer timer("SPmatcher::SearchByBoWSP");
     const std::vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
     vpMapPointMatches = std::vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
     std::vector<cv::DMatch> matches;
@@ -2109,6 +2120,7 @@ int SPmatcher::SearchBySim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint
 int SPmatcher::SearchByProjection(KeyFrame* pKF, Sophus::Sim3f &Scw, const vector<MapPoint*> &vpPoints,
                                        vector<MapPoint*> &vpMatched, int th, float ratioHamming)
 {
+        ScopedTimer timer("SPmatcher::SearchByProjection");
         const float &fx = pKF->fx;
         const float &fy = pKF->fy;
         const float &cx = pKF->cx;

@@ -9,7 +9,7 @@ MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -O3") #其中${CMAKE_C_FLAGS}表示先前在CMake中定义的C语言编译器标志，而-Wall -O3是额外添加到这个变量中的编译器标志。
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3")
-set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -fopenmp -march=native -pthread")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp -march=native -pthread")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -march=native")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -O3")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS} -g")
@@ -109,6 +109,7 @@ src/Extractors/superpoint_onnx.cc
 src/Matchers/SPmatcher.cc
 src/Matchers/lightglue_onnx.cpp
 src/Matchers/transform.cpp
+src/scoped_timer.cc
 include/Timestamp.h
 include/Random.h
 include/System.h
@@ -146,7 +147,9 @@ include/Matchers/SPmatcher.h
 include/Matchers/lightglue_onnx.h
 include/Matchers/Configuration.h
 include/Matchers/transform.h
-include/Settings.h)
+include/Settings.h
+include/scoped_timer.h
+)
 
 add_subdirectory(Thirdparty/g2o)
 add_subdirectory(Thirdparty/DBoW3)

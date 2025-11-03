@@ -74,6 +74,11 @@ int main(int argc, char *argv[])
     nImages.resize(num_seq);
     nImu.resize(num_seq);
 
+    std::vector<double> seq_offset(num_seq, 0.0);   // seconds
+    double guard = 0.5;                              // any small >0 gap works
+    double last_cam_t_global = -1e18;                // track end time of previous seq (camera)
+    double last_imu_t_global = -1e18;                // track end time of previous seq (imu)
+
     int tot_images = 0;
     for (seq = 0; seq<num_seq; seq++)
     {
@@ -126,7 +131,16 @@ int main(int argc, char *argv[])
     int proccIm=0;
     for (seq = 0; seq<num_seq; seq++)
     {
-
+        if (seq == 0) {
+            seq_offset[seq] = 0.0;
+        } else {
+            double base = std::max(last_cam_t_global, last_imu_t_global) + guard;
+            seq_offset[seq] = base - vTimestampsCam[seq][0];  // make first cam time > previous end
+            std::cout.setf(std::ios::fixed);
+            std::cout << std::setprecision(9)
+                    << "SeqOffset:= " << seq_offset[seq] << "\n";
+        }
+        
         // Main loop
         cv::Mat im;
         vector<ORB_SLAM3::IMU::Point> vImuMeas;
@@ -139,6 +153,7 @@ int main(int argc, char *argv[])
             im = cv::imread(vstrImageFilenames[seq][ni],cv::IMREAD_UNCHANGED); //CV_LOAD_IMAGE_UNCHANGED);
 
             double tframe = vTimestampsCam[seq][ni];
+            double tframe_track = tframe + seq_offset[seq];    // shifted (only used for SLAM)
 
             if(im.empty())
             {
@@ -173,15 +188,25 @@ int main(int argc, char *argv[])
             // Load imu measurements from previous frame
             vImuMeas.clear();
 
-            if(ni>0)
+            if(ni>0 || (seq > 0))
             {
-                // cout << "t_cam " << tframe << endl;
 
-                while(vTimestampsImu[seq][first_imu[seq]]<=vTimestampsCam[seq][ni])
+                // while(vTimestampsImu[seq][first_imu[seq]]<=vTimestampsCam[seq][ni])
+                // {
+                //     vImuMeas.push_back(ORB_SLAM3::IMU::Point(vAcc[seq][first_imu[seq]].x,vAcc[seq][first_imu[seq]].y,vAcc[seq][first_imu[seq]].z,
+                //                                              vGyro[seq][first_imu[seq]].x,vGyro[seq][first_imu[seq]].y,vGyro[seq][first_imu[seq]].z,
+                //                                              vTimestampsImu[seq][first_imu[seq]]));
+                //     first_imu[seq]++;
+                // }
+                while (first_imu[seq] < nImu[seq] &&
+                       vTimestampsImu[seq][first_imu[seq]] + seq_offset[seq] <= last_cam_t_global) {
+                    first_imu[seq]++;
+                }
+                while(vTimestampsImu[seq][first_imu[seq]] + seq_offset[seq] <= tframe_track)
                 {
-                    vImuMeas.push_back(ORB_SLAM3::IMU::Point(vAcc[seq][first_imu[seq]].x,vAcc[seq][first_imu[seq]].y,vAcc[seq][first_imu[seq]].z,
-                                                             vGyro[seq][first_imu[seq]].x,vGyro[seq][first_imu[seq]].y,vGyro[seq][first_imu[seq]].z,
-                                                             vTimestampsImu[seq][first_imu[seq]]));
+                    vImuMeas.push_back(ORB_SLAM3::IMU::Point(vAcc[seq][first_imu[seq]].x, vAcc[seq][first_imu[seq]].y, vAcc[seq][first_imu[seq]].z,
+                                                             vGyro[seq][first_imu[seq]].x, vGyro[seq][first_imu[seq]].y, vGyro[seq][first_imu[seq]].z,
+                                                             vTimestampsImu[seq][first_imu[seq]] + seq_offset[seq]));
                     first_imu[seq]++;
                 }
             }
@@ -195,7 +220,7 @@ int main(int argc, char *argv[])
             // Pass the image to the SLAM system
             // cout << "tframe = " << tframe << endl;
             
-            SLAM.TrackMonocular(im,tframe,vImuMeas); // TODO change to monocular_inertial
+            SLAM.TrackMonocular(im,tframe_track,vImuMeas); // TODO change to monocular_inertial
 
     #ifdef COMPILEDWITHC11
             std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -224,11 +249,13 @@ int main(int argc, char *argv[])
             if(ttrack<T)
                 usleep((T-ttrack)*1e6); // 1e6
         }
+        last_cam_t_global = vTimestampsCam[seq].back() + seq_offset[seq];
+        last_imu_t_global = vTimestampsImu[seq].back() + seq_offset[seq];
         if(seq < num_seq - 1)
         {
             cout << "Changing the dataset" << endl;
 
-            SLAM.ChangeDataset();
+            //SLAM.ChangeDataset();
         }
     }
 

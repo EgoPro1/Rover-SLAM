@@ -7,7 +7,7 @@
 # When the variables are commented, the system doesn't load a previous session or not store the current one
 
 # If the LoadFile doesn't exist, the system give a message and create a new Atlas from scratch
-#System.LoadAtlasFromFile: "Session_MH01_MH02_MH03_Mono"
+System.LoadAtlasFromFile: "Session_MH01_MH02_MH03_Mono"
 
 # The store file is created from the current session, if a file with the same name exists it is deleted
 #System.SaveAtlasToFile: "Session_MH01_MH02_MH03_Mono"
@@ -36,7 +36,7 @@ Camera.width: 752
 Camera.height: 480
 
 Camera.newWidth: 480 #320
-Camera.newHeight: 360 #240
+Camera.newHeight: 400 #240
 
 # Camera frames per second 
 Camera.fps: 20
@@ -47,6 +47,8 @@ Camera.RGB: 1
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
+
+ORBextractor.pFeatures: 50 # Percentage of features to retain after filtering
 
 # ORB Extractor: Number of features per image
 ORBextractor.nFeatures: 1000
