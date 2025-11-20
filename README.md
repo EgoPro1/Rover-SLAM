@@ -1,6 +1,6 @@
 # A real-time, robust and versatile visual-SLAM framework based on deep learning networks
 
-*Forked project to deploy and test on a Jetson Orin Nano
+*Forked project to test and evaluate on Augmented Datasets EuRoC
 
 # Prerequisites
 WSL Setup: 
