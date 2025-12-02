@@ -635,7 +635,7 @@ void System::Shutdown()
 
     /*if(mpViewer)
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");*/
-    //ScopedTimer::write_to_csv("/tmp/event_log.csv");
+    ScopedTimer::write_to_csv("/tmp/event_log.csv");
     mpTracker->OutputAvgNumofFeat();
     mpTracker->OutputMatchStats();
     mpTracker->OuputTrackLostCount();

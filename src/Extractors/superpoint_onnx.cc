@@ -10,7 +10,10 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
         env0 = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "LightGlueDecoupleOnnxRunner Extractor");
 
         session_options0 = Ort::SessionOptions();
-        session_options0.SetInterOpNumThreads(std::thread::hardware_concurrency());
+        //session_options0.SetInterOpNumThreads(std::thread::hardware_concurrency());
+        session_options0.SetInterOpNumThreads(1);
+        session_options0.SetIntraOpNumThreads(1);
+        session_options0.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
         if (cfg.device == "cuda") {
@@ -26,7 +29,7 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
             cuda_options.default_memory_arena_cfg = nullptr;
 
             session_options0.AppendExecutionProvider_CUDA(cuda_options);
-            session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+            //session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
         }
 
      

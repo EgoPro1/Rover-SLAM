@@ -14,7 +14,10 @@ int LightGlueDecoupleOnnxRunner::InitOrtEnv(Configuration cfg)
         // session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
         session_options1 = Ort::SessionOptions();
-        session_options1.SetInterOpNumThreads(std::thread::hardware_concurrency());
+        //session_options1.SetInterOpNumThreads(std::thread::hardware_concurrency());
+        session_options1.SetInterOpNumThreads(1);
+        session_options1.SetIntraOpNumThreads(1);
+        session_options1.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         session_options1.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
         if (cfg.device == "cuda") {
@@ -32,7 +35,7 @@ int LightGlueDecoupleOnnxRunner::InitOrtEnv(Configuration cfg)
             // session_options0.AppendExecutionProvider_CUDA(cuda_options);
             // session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
             session_options1.AppendExecutionProvider_CUDA(cuda_options);
-            session_options1.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+            //session_options1.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
         }
 
         cfg.lightgluePath = "onnxmodel/lightglue_sim.onnx";

@@ -3639,7 +3639,8 @@ bool Tracking::TrackWithMotionModel()
     }
     //cout<<"first nmatches_sp: "<<first_nmatches<<" nmatches_sp: "<<nmatchesMap<<endl;
         
-    // 纯定位模式下：如果成功追踪的地图点非常少,那么这里的mbVO标志就会置位
+    // 纯定位模式下：如果成功追踪的地图点非常少,那么这里的mbVO标志就会置位.
+    //UpdateMatchStats(TrackFunc::MotionModel, nmatches_sp, nmatchesMap);
     if(mbOnlyTracking)
     {   
         UpdateMatchStats(TrackFunc::MotionModel, nmatches_sp, nmatchesMap);
@@ -3685,27 +3686,27 @@ bool Tracking::TrackLocalMap()
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
     mTrackedFr++;
-    const int assoc_before  = CountAssociations(mCurrentFrame);
-    const int inlier_before = CountInliers(mCurrentFrame);
+    //const int assoc_before  = CountAssociations(mCurrentFrame);
+    //const int inlier_before = CountInliers(mCurrentFrame);
     // Step 1：Update local keyframes mvpLocalKeyFrames and local map points mvpLocalMapPoints
     UpdateLocalMap();
     // Step 2：Filter newly added map points within the field of view in the local map, project them onto the current frame for matching, and obtain more matching relationships.
     SearchLocalPoints();
 
-    const int assoc_after_search = CountAssociations(mCurrentFrame);
-    int pre_localmap = assoc_after_search - assoc_before;
-    if (pre_localmap < 0) pre_localmap = 0; // defensive
+    //const int assoc_after_search = CountAssociations(mCurrentFrame);
+    //int pre_localmap = assoc_after_search - assoc_before;
+    //if (pre_localmap < 0) pre_localmap = 0; // defensive
     // TOO check outliers before PO
     // 查看内外点数目，调试用
-    int aux1 = 0, aux2=0;
-    for(int i=0; i<mCurrentFrame.N; i++)
-        if( mCurrentFrame.mvpMapPoints[i])
-        {
-            aux1++;
-            if(mCurrentFrame.mvbOutlier[i])
-                aux2++;
-        }
-    int first = aux1-aux2;
+    //int aux1 = 0, aux2=0;
+    //for(int i=0; i<mCurrentFrame.N; i++)
+    //    if( mCurrentFrame.mvpMapPoints[i])
+    //    {
+    //        aux1++;
+    //        if(mCurrentFrame.mvbOutlier[i])
+    //            aux2++;
+    //    }
+    //int first = aux1-aux2;
     int inliers;
     // IMU未初始化，仅优化位姿
     if (!mpAtlas->isImuInitialized())
@@ -3738,7 +3739,7 @@ bool Tracking::TrackLocalMap()
         }
     }
     // 查看内外点数目，调试用
-    aux1 = 0, aux2 = 0;
+    int aux1 = 0, aux2 = 0;
     for(int i=0; i<mCurrentFrame.N; i++)
         if( mCurrentFrame.mvpMapPoints[i])
         {
@@ -3746,9 +3747,9 @@ bool Tracking::TrackLocalMap()
             if(mCurrentFrame.mvbOutlier[i])
                 aux2++;
         }
-    const int inlier_after = CountInliers(mCurrentFrame);
-    int inl_localmap = inlier_after - inlier_before;
-    if (inl_localmap < 0) inl_localmap = 0; // if some prior inliers turned to outliers
+    //const int inlier_after = CountInliers(mCurrentFrame);
+    //int inl_localmap = inlier_after - inlier_before;
+    //if (inl_localmap < 0) inl_localmap = 0; // if some prior inliers turned to outliers
     //cout<<"first aux1-aux2:"<<first<<" second aux1-aux2: "<<aux1-aux2<<endl;
     //cout<<"second aux1: "<< aux1 << "  aux2:  " <<aux2<<endl;
     mnMatchesInliers = 0;
@@ -3785,14 +3786,15 @@ bool Tracking::TrackLocalMap()
         }
         
     }
-    if(mbOnlyTracking)
-        UpdateMatchStats(TrackFunc::LocalMap, pre_localmap, inl_localmap);
     //cout<<"mCurrentFrame.N"<<mCurrentFrame.N<<" mnMatchesInliers: "<<mnMatchesInliers<<endl;
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
     // Step 5：根据跟踪匹配数目及重定位情况决定是否跟踪成功
     // 如果最近刚刚发生了重定位,那么至少成功匹配50个点才认为是成功跟踪
+    if(mbOnlyTracking)
+        UpdateMatchStats(TrackFunc::LocalMap, aux1, mnMatchesInliers);
+
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<5){//50
         cout<<" mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<10 aux1: "<< aux1 << "  aux2:  " <<aux2<<endl;
         return false;
@@ -4608,8 +4610,9 @@ bool Tracking::Relocalization()
 
     // 有效的候选关键帧数目
     int nCandidates=0;
+    int pre_final = 0;
+    int inl_final = 0;
     int pre = 0;
-    int inl = 0;
     // Step 3：遍历所有的候选关键帧，通过BoW进行快速匹配，用匹配结果初始化PnP Solver
     for(int i=0; i<nKFs; i++)
     {
@@ -4624,7 +4627,6 @@ bool Tracking::Relocalization()
             // 当前帧和候选关键帧用BoW进行快速匹配，匹配结果记录在vvpMapPointMatches，nmatches表示匹配的数目
             //int nmatches = matcher.SearchByBoW(pKF,mCurrentFrame,vvpMapPointMatches[i]);
             int nmatches_sp = mspmatcher.SearchByBoWSP(pKF,mCurrentFrame,vvpMapPointMatches[i]);
-            pre = std::max(pre, nmatches_sp);
             //cout << "nmatches_sp=" << nmatches_sp << endl;
             // 如果和当前帧的匹配数小于15,那么只能放弃这个关键帧
             if(nmatches_sp<15)
@@ -4649,6 +4651,7 @@ bool Tracking::Relocalization()
                     7.815);                  // Chi-square test threshold //This solver requires at least 6 points
                 vpMLPnPsolvers[i] = pSolver;
                 nCandidates++;  // 1.0版本新加的
+                pre += nmatches_sp;
             }
         }
     }
@@ -4736,7 +4739,7 @@ bool Tracking::Relocalization()
                 {
                     // 通过投影的方式将关键帧中未匹配的地图点投影到当前帧中, 生成新的匹配
                     int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
-
+                    pre+= nadditional;
                     // 如果通过投影过程新增了比较多的匹配特征点对
                     if(nadditional+nGood>=50)
                     {
@@ -4756,7 +4759,7 @@ bool Tracking::Relocalization()
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                             nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
-
+                            pre+= nadditional;
                             // Final optimization
                             // 如果成功挽救回来，匹配数目达到要求，最后BA优化一下
                             if(nGood+nadditional>=50)
@@ -4772,11 +4775,12 @@ bool Tracking::Relocalization()
                     }
                 }
 
-                inl = std::max(inl, nGood);
                 // If the pose is supported by enough inliers stop ransacs and continue
                 // 如果对于当前的候选关键帧已经有足够的内点(50个)了,那么就认为重定位成功
                 if(nGood>=50)
                 {
+                    pre_final = pre;
+                    inl_final = nGood;
                     bMatch = true;
                     //UpdateMatchStats(TrackFunc::Reloc, pre, nGood);
                     // = vpCandidateKFs[i]; // the KF matched successfully
@@ -4787,8 +4791,6 @@ bool Tracking::Relocalization()
         }// 一直运行,知道已经没有足够的关键帧,或者是已经有成功匹配上的关键帧
     }
     
-    if(mbOnlyTracking)
-        UpdateMatchStats(TrackFunc::Reloc, pre, inl);
     // 折腾了这么久还是没有匹配上，重定位失败
     if(!bMatch)
     {
@@ -4810,6 +4812,9 @@ bool Tracking::Relocalization()
         //         mCurrentFrame.SetNewBias(b);
         //     }
         // }
+        
+        if(mbOnlyTracking)
+            UpdateMatchStats(TrackFunc::Reloc, pre_final, inl_final);
         mnLastRelocFrameId = mCurrentFrame.mnId;
         cout << "Relocalized!!" << endl;
         return true;
