@@ -1,6 +1,6 @@
-# A real-time, robust and versatile visual-SLAM framework based on deep learning networks
+# A visual-SLAM pipeline with deep learning-based Feature Extraction/Matching methods
 
-*Forked project to test and evaluate on Augmented Datasets EuRoC
+*Forked project to conduct comparative research vs ORB-SLAM3. Evaluated on Augmented EuRoC Datasets, targeting edge device Jetson Nano Orin.
 
 # Prerequisites
 WSL Setup: 
