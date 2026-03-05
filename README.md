@@ -1,6 +1,6 @@
 # A visual-SLAM pipeline with deep learning-based Feature Extraction/Matching methods
 
-*Forked project to conduct comparative research vs ORB-SLAM3. Evaluated on Augmented EuRoC Datasets, targeting edge device Jetson Nano Orin.
+*Forked and modified to conduct comparative research vs ORB-SLAM3. Evaluated on Augmented EuRoC Datasets, targeting edge device Jetson Nano Orin.
 
 # Prerequisites
 WSL Setup: 
