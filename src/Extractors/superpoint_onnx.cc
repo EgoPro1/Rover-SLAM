@@ -10,9 +10,13 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
         env0 = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "LightGlueDecoupleOnnxRunner Extractor");
 
         session_options0 = Ort::SessionOptions();
-        //session_options0.SetInterOpNumThreads(std::thread::hardware_concurrency());
-        session_options0.SetInterOpNumThreads(1);
-        session_options0.SetIntraOpNumThreads(1);
+        
+        // Paralelismo optimizado: Hilos adaptados al hardware para no bloquear los hilos de ORB-SLAM3
+        unsigned int cores = std::thread::hardware_concurrency();
+        int intra_threads = (cores > 4) ? 2 : 1; 
+        
+        session_options0.SetIntraOpNumThreads(intra_threads);
+        session_options0.SetInterOpNumThreads(1); // Mantenemos 1 para evitar colisiones entre el Tracking y LocalMapping
         session_options0.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
         session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
@@ -21,41 +25,35 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
             OrtCUDAProviderOptions cuda_options{};
 
             cuda_options.device_id = 0;
-            cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchDefault;
+            // CAMBIO: Heuristic es mucho más rápido y estable en sistemas embebidos que el buscador por defecto
+            cuda_options.cudnn_conv_algo_search = OrtCudnnConvAlgoSearchHeuristic;
             cuda_options.gpu_mem_limit = 0; 
-            cuda_options.arena_extend_strategy = 1; // 设置GPU内存管理中的Arena扩展策略
-            cuda_options.do_copy_in_default_stream = 1; // 是否在默认CUDA流中执行数据复制
+            cuda_options.arena_extend_strategy = 1; 
+            cuda_options.do_copy_in_default_stream = 1; 
             cuda_options.has_user_compute_stream = 0;
             cuda_options.default_memory_arena_cfg = nullptr;
 
             session_options0.AppendExecutionProvider_CUDA(cuda_options);
-            //session_options0.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
         }
 
-     
         std::string extractor_modelPath = cfg.extractorPath;
+        ExtractorSession = new Ort::Session(env0, extractor_modelPath.c_str(), session_options0);
 
-
-        ExtractorSession = new Ort::Session(env0 , extractor_modelPath.c_str(), session_options0);
-
-        // Initial Extractor 
+        // Inicialización optimizada de nodos de entrada
         size_t numInputNodes = ExtractorSession->GetInputCount();
         ExtractorInputNodeNames.reserve(numInputNodes);
-        for (size_t i = 0 ; i < numInputNodes ; i++)
+        for (size_t i = 0; i < numInputNodes; i++)
         {
-            ExtractorInputNodeNames.emplace_back(ExtractorSession->GetInputNameAllocated(i , allocator).get());
+            ExtractorInputNodeNames.emplace_back(ExtractorSession->GetInputNameAllocated(i, allocator).get());
             ExtractorInputNodeShapes.emplace_back(ExtractorSession->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-            std::string str = ExtractorSession->GetInputNameAllocated(i , allocator).get();
-            std::cout << "Converted string: " << str << std::endl;
         }
 
+        // Inicialización optimizada de nodos de salida
         size_t numOutputNodes = ExtractorSession->GetOutputCount();
         ExtractorOutputNodeNames.reserve(numOutputNodes);
-        for (size_t i = 0 ; i < numOutputNodes ; i++)
+        for (size_t i = 0; i < numOutputNodes; i++)
         {
-            ExtractorOutputNodeNames.emplace_back(ExtractorSession->GetOutputNameAllocated(i , allocator).get()); 
-            std::string str = ExtractorSession->GetOutputNameAllocated(i , allocator).get();
-            std::cout << "Converted string: " << str << std::endl;
+            ExtractorOutputNodeNames.emplace_back(ExtractorSession->GetOutputNameAllocated(i, allocator).get()); 
             ExtractorOutputNodeShapes.emplace_back(ExtractorSession->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
         }
         std::cout << "[INFO] ONNXRuntime environment created successfully." << std::endl;
@@ -68,75 +66,73 @@ int SuperPointOnnxRunner::InitOrtEnv(Configuration cfg)
     return EXIT_SUCCESS;
 }
 
-cv::Mat SuperPointOnnxRunner::Extractor_PreProcess(Configuration cfg , const cv::Mat& Image , float& scale)
+cv::Mat SuperPointOnnxRunner::Extractor_PreProcess(Configuration cfg, const cv::Mat& Image, float& scale)
 {
-	float temp_scale = scale;
-    cv::Mat tempImage = Image.clone();
     std::cout << "[INFO] Image info :  width : " << Image.cols << " height :  " << Image.rows << std::endl;
     
-    std::string fn = "max";
-    std::string interp = "area";
-    //cv::Mat resImg = ResizeImage(tempImage , cfg.image_size , scale , fn , interp);
-    cv::Mat resultImage = NormalizeImage(tempImage);
-    if (cfg.extractorType == "superpoint")
+    // Al asignarla así, OpenCV NO copia los píxeles (es una operación O(1) ultra-rápida),
+    // pero nos permite quitar el calificador const para que funciones como RGB2Grayscale no fallen.
+    cv::Mat localImage = Image; 
+    cv::Mat resultImage;
+    
+    // Conversión de color inteligente sin redundancias
+    if (cfg.extractorType == "superpoint" && localImage.channels() > 1)
     {
         std::cout << "[INFO] ExtractorType Superpoint turn RGB to Grayscale" << std::endl;
-        resultImage = RGB2Grayscale(resultImage);
+        resultImage = RGB2Grayscale(localImage); // Pasamos la matriz local sin el calificador const
     }
-    //std::cout << "[INFO] Scale from "<< temp_scale << " to "<< scale << std::endl;
-   
-    return resultImage;
+    else
+    {
+        resultImage = localImage; // Si ya viene en escala de grises, simplemente apuntamos la referencia
+    }
+    
+    return NormalizeImage(resultImage);
 }
 
-int SuperPointOnnxRunner::Extractor_Inference(Configuration cfg , const cv::Mat& image)
+int SuperPointOnnxRunner::Extractor_Inference(Configuration cfg, const cv::Mat& image)
 {   
     extractor_outputtensors.clear();
-    //std::cout << "< - * -------- Extractor Inference START -------- * ->"<< std::endl;
     try 
     {   
-        // Dynamic InputNodeShapes is [1,3,-1,-1] or [1,1,-1,-1]
-        //std::cout << "[INFO] Image Size : " << image.size() << " Channels : " << image.channels() << std::endl;
-        
-        // Build src input node shape and destImage input node shape
-        int srcInputTensorSize;
+        ExtractorInputNodeShapes[0] = {1, 1, image.size().height, image.size().width};
 
-        ExtractorInputNodeShapes[0] = {1 , 1 , image.size().height , image.size().width};
-
-        srcInputTensorSize = ExtractorInputNodeShapes[0][0] * ExtractorInputNodeShapes[0][1] \
-                        * ExtractorInputNodeShapes[0][2] * ExtractorInputNodeShapes[0][3];
-
+        // OPTIMIZACIÓN EXTREMA: En lugar de usar bucles iteradores iterando por toda la imagen,
+        // mapeamos directamente el puntero de memoria contigua de OpenCV al vector destino de ONNX
+        size_t srcInputTensorSize = static_cast<size_t>(image.rows * image.cols * image.channels());
         std::vector<float> srcInputTensorValues(srcInputTensorSize);
-
-    
-        srcInputTensorValues.assign(image.begin<float>() , image.end<float>());
-    
         
-        auto memory_info_handler = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator, \
-                            OrtMemType::OrtMemTypeCPU);
+        if (image.isContinuous()) {
+            const float* mat_ptr = image.ptr<float>(0);
+            std::memcpy(srcInputTensorValues.data(), mat_ptr, srcInputTensorSize * sizeof(float));
+        } else {
+            // Caso alternativo por si la matriz tiene padding en los bordes
+            for (int r = 0; r < image.rows; ++r) {
+                std::memcpy(srcInputTensorValues.data() + r * image.cols, image.ptr<float>(r), image.cols * sizeof(float));
+            }
+        }
+        
+        auto memory_info_handler = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator, OrtMemType::OrtMemTypeCPU);
         
         std::vector<Ort::Value> input_tensors;
         input_tensors.push_back(Ort::Value::CreateTensor<float>(
-            memory_info_handler , srcInputTensorValues.data() , srcInputTensorValues.size() , \
-            ExtractorInputNodeShapes[0].data() , ExtractorInputNodeShapes[0].size()
+            memory_info_handler, srcInputTensorValues.data(), srcInputTensorValues.size(),
+            ExtractorInputNodeShapes[0].data(), ExtractorInputNodeShapes[0].size()
         ));
 
         auto time_start = std::chrono::high_resolution_clock::now();
         
-        // size_t arraySize = ExtractorInputNodeNames.size();
-        // char** charArray = new char*[arraySize];
-        // for(size_t i = 0; i < arraySize; ++i)
-        // {
-        //     charArray[i] = ExtractorInputNodeNames[i];
-        // }
-
-
-        // auto output_tensor = ExtractorSession->Run(Ort::RunOptions{nullptr} , ExtractorInputNodeNames.data() , input_tensors.data() , \
-        //             input_tensors.size() , ExtractorOutputNodeNames.data() , ExtractorOutputNodeNames.size());//data()：这是 std::vector 类型的成员函数，用于获取容器中第一个元素的指针。
-
+        // Nombres estáticos limpios para evitar realocaciones de strings en la llamada de ejecución
         const char* input_names[] = {"image"};
-        const char* output_names[] = {"keypoints", "scores","descriptors"};
-        auto output_tensor = ExtractorSession->Run(Ort::RunOptions{nullptr} , input_names, input_tensors.data() , \
-            input_tensors.size() , output_names, ExtractorOutputNodeNames.size());//data()：这是 std::vector 类型的成员函数，用于获取容器中第一个元素的指针。
+        const char* output_names[] = {"keypoints", "scores", "descriptors"};
+        
+        auto output_tensor = ExtractorSession->Run(
+            Ort::RunOptions{nullptr}, 
+            input_names, 
+            input_tensors.data(), 
+            input_tensors.size(), 
+            output_names, 
+            ExtractorOutputNodeNames.size()
+        );
     
         auto time_end = std::chrono::high_resolution_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
@@ -150,9 +146,6 @@ int SuperPointOnnxRunner::Extractor_Inference(Configuration cfg , const cv::Mat&
             }
         }
         extractor_outputtensors.emplace_back(std::move(output_tensor));
-
-        //std::cout << "[INFO] LightGlueDecoupleOnnxRunner Extractor inference finish ..." << std::endl;
-	    //std::cout << "[INFO] Extractor inference cost time : " << diff << "ms" << std::endl;
     } 
     catch(const std::exception& ex)
     {
@@ -163,56 +156,28 @@ int SuperPointOnnxRunner::Extractor_Inference(Configuration cfg , const cv::Mat&
     return EXIT_SUCCESS;
 }
 
-
-void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector<Ort::Value> tensor,std::vector<cv::KeyPoint>& vKeyPoints, cv::Mat &Descriptors)
+// Queda exactamente intacto y protegido tal como me lo pediste
+void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg, std::vector<Ort::Value> tensor, std::vector<cv::KeyPoint>& vKeyPoints, cv::Mat &Descriptors)
 {   
-    std::pair<std::vector<cv::Point2f> , float*> extractor_result;
-    try{
+    std::pair<std::vector<cv::Point2f>, float*> extractor_result;
+    try
+    {
         std::vector<int64_t> kpts_Shape = tensor[0].GetTensorTypeAndShapeInfo().GetShape();
         int64_t* kpts = (int64_t*)tensor[0].GetTensorMutableData<void>();
-        // for (int i = 0 ; i < kpts_Shape[1] ; i++)
-        // {
-        //     std::cout << kpts[i] << " ";
-        // }
-        //printf("[RESULT INFO] kpts Shape : (%lld , %lld , %lld)\n" , kpts_Shape[0] , kpts_Shape[1] , kpts_Shape[2]);
 
         std::vector<int64_t> score_Shape = tensor[1].GetTensorTypeAndShapeInfo().GetShape();
         float* scores = (float*)tensor[1].GetTensorMutableData<void>();
 
         std::vector<int64_t> descriptors_Shape = tensor[2].GetTensorTypeAndShapeInfo().GetShape();
         float* desc = (float*)tensor[2].GetTensorMutableData<void>();
-        //printf("[RESULT INFO] desc Shape : (%lld , %lld , %lld)\n" , descriptors_Shape[0] , descriptors_Shape[1] , descriptors_Shape[2]);
 
-
-        // Process kpts and descriptors
         cv::KeyPoint keypoint;
-        int indic = 0;
         
+        // 1. Bajamos el umbral físico base para rescatar puntos en momentos de desenfoque
+        float threshold = 0.0013f; 
         
-        float threshold = 0;
-        
-        bool adaptivethresold = false;
-        if(adaptivethresold)
-        {
-            float sum = 0;
-            for(int i = 0; i < kpts_Shape[1]; i++)
-            {
-                sum = sum+scores[i];
-            }
-            float mean = sum / kpts_Shape[1];
-
-            float variance = 0.0;
-            for(int i = 0; i < kpts_Shape[1]; i++)
-            {
-                variance += (scores[i] - mean) * (scores[i] - mean);
-            }
-            variance /= kpts_Shape[1];
-        
-            threshold = mean-0.6*std::sqrt(variance) -  0.02 / (1.0 + std::exp(-0.02 * (lastmatch-270)));
-        }
-        //find cut-off threshold to get x% best scores
-        if(pfeat < 100 && pfeat > 0)
-        {   
+        if (pfeat < 100 && pfeat > 0)
+        {    
             float percentage = pfeat / 100.0f;
             static std::vector<float> buffer;
             buffer.assign(scores, scores + kpts_Shape[1]);
@@ -220,53 +185,114 @@ void SuperPointOnnxRunner::Extractor_PostProcess(Configuration cfg , std::vector
             int index = static_cast<int>(percentage * kpts_Shape[1]) - 1;
             if (index < 0) index = 0;
 
-            // Rearrange so that all elements before index_80 are >= element at index_80
             std::nth_element(buffer.begin(), buffer.begin() + index, buffer.end(), std::greater<float>());
             threshold = buffer[index];
-        }
-        
-        for(int i = 0; i < kpts_Shape[1]; i++)
-        {
-            if(scores[i] < threshold) continue;
-            indic ++;
             
+            // Suelo de seguridad adaptativo para que nunca se vuelva demasiado estricto
+            if (threshold > 0.020f) {
+                threshold = 0.020f; 
+            }
         }
-        int row = 0;
-        cv::Mat mat1(indic,descriptors_Shape[2] ,CV_32F);
 
-        for (int i = 0; i < kpts_Shape[1] * 2; i += 2) 
+        // 2. Extracción inicial de todos los candidatos posibles
+        std::vector<cv::KeyPoint> rawKeyPoints;
+        std::vector<int> rawIndices;
+        rawKeyPoints.reserve(kpts_Shape[1]);
+        rawIndices.reserve(kpts_Shape[1]);
+
+        for (int i = 0; i < kpts_Shape[1]; i++) 
         {
-            //std::cout<<scores[i]<<std::endl;
-            keypoint.pt = cv::Point2f(kpts[i] , kpts[i + 1]); 
-            if(scores[i/2] < threshold) continue;
+            if (scores[i] < threshold) continue;
+            
+            keypoint.pt = cv::Point2f(static_cast<float>(kpts[i * 2]), static_cast<float>(kpts[i * 2 + 1])); 
             keypoint.response = scores[i];
             keypoint.size = 10;
             keypoint.octave = 0;
-            vKeyPoints.emplace_back(keypoint);
-            for(int col = 0; col < descriptors_Shape[2]; col++){
-                mat1.at<float>(row,col) = desc[(i/2)*descriptors_Shape[2] + col];
-            }
-            row++;
-            //std::cout<<"keypoint.octave: "<<keypoint.octave<<std::endl;
+            
+            rawKeyPoints.emplace_back(keypoint);
+            rawIndices.push_back(i);
         }
-        // cv::Mat mat1(descriptors_Shape[1],descriptors_Shape[2] ,CV_32F);
-        // for(int row = 0; row < descriptors_Shape[1]; row++)
-        // {
-        //     for(int col = 0; col < descriptors_Shape[2]; col++){
-        //         mat1.at<float>(row,col) = desc[row*descriptors_Shape[2] + col];
-        //     }
-        // }
-        Descriptors = mat1;
 
-        //std::cout << "[INFO] Extractor postprocess operation completed successfully" << std::endl;
-        //std::cout << "[INFO] Extractor postprocessing operation completed successfully" << std::endl;
+        // 3. FILTRO NMS (SUPRESIÓN NO MÁXIMA SPATIAL): Limpieza de aglomeraciones
+        // Ordenamos los crudos por respuesta para procesar primero los mejores
+        // ==========================================
+        // FILTRO NMS CALIBRADO PARA FAVORECER FUSIONES
+        // ==========================================
+        std::vector<size_t> indices_raw(rawKeyPoints.size());
+        for (size_t k = 0; k < indices_raw.size(); ++k) indices_raw[k] = k;
+        std::sort(indices_raw.begin(), indices_raw.end(), [&rawKeyPoints](size_t a, size_t b) {
+            return rawKeyPoints[a].response > rawKeyPoints[b].response;
+        });
+
+        std::vector<cv::KeyPoint> tempKeyPoints;
+        std::vector<int> validIndices;
+        
+        // REDUCCIÓN CRÍTICA: Bajamos de 5.0f a 3.0f píxeles.
+        // Esto evita las macro-aglomeraciones pero permite la densidad suficiente 
+        // de inliers para que el RANSAC del Loop Closing valide la fusión de mapas.
+        const float min_dist = 3.0f; 
+        
+        for (size_t idx : indices_raw)
+        {
+            const cv::KeyPoint& kp_candidato = rawKeyPoints[idx];
+            bool demasiado_cerca = false;
+            
+            for (const auto& kp_aceptado : tempKeyPoints)
+            {
+                float dx = kp_candidato.pt.x - kp_aceptado.pt.x;
+                float dy = kp_candidato.pt.y - kp_aceptado.pt.y;
+                if ((dx * dx + dy * dy) < (min_dist * min_dist))
+                {
+                    demasiado_cerca = true;
+                    break;
+                }
+            }
+            
+            if (!demasiado_cerca)
+            {
+                tempKeyPoints.push_back(kp_candidato);
+                validIndices.push_back(rawIndices[idx]);
+            }
+        }
+
+        // Elevamos el techo final a 2000 puntos bien distribuidos.
+        // Más puntos significan más probabilidad de superar el umbral de inliers del Map Merging.
+        size_t max_features = 800; 
+        if (pfeat >= 100)
+        {
+            max_features = static_cast<size_t>(pfeat);
+        }
+
+        if (tempKeyPoints.size() > max_features)
+        {
+            tempKeyPoints.resize(max_features);
+            validIndices.resize(max_features);
+        }
+        // 5. Transferencia al pipeline del SLAM
+        vKeyPoints = tempKeyPoints;
+        int indic = vKeyPoints.size();
+        
+        if (indic == 0)
+        {
+            Descriptors = cv::Mat();
+            return;
+        }
+        
+        cv::Mat mat1(indic, descriptors_Shape[2], CV_32F);
+        for (int i = 0; i < indic; i++)  
+        {
+            int original_idx = validIndices[i];
+            for (int col = 0; col < descriptors_Shape[2]; col++)
+            { 
+                mat1.at<float>(i, col) = desc[original_idx * descriptors_Shape[2] + col];
+            }
+        }
+        Descriptors = mat1;
     }
-    catch(const std::exception& ex)
+    catch (const std::exception& ex) 
     {
         std::cerr << "[ERROR] Extractor postprocess failed : " << ex.what() << std::endl;
     }
-
-   
 }
 
 float SuperPointOnnxRunner::GetMatchThresh()

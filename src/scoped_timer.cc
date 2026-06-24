@@ -6,7 +6,6 @@
 #include <iostream>
 #include <mutex>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -31,10 +30,11 @@ std::unordered_map<std::string, int> g_name_to_id;
 std::vector<std::string> g_id_to_name;
 std::atomic<int> g_next_id{0};
 
-int get_or_create_name_id(std::string_view name)
+// Cambiado de std::string_view a const std::string&
+int get_or_create_name_id(const std::string& name)
 {
     std::lock_guard<std::mutex> lock(g_name_map_mutex);
-    auto it = g_name_to_id.find(std::string(name));
+    auto it = g_name_to_id.find(name);
     if (it != g_name_to_id.end())
     {
         return it->second;
@@ -42,13 +42,14 @@ int get_or_create_name_id(std::string_view name)
 
     int id = g_next_id++;
     g_name_to_id.emplace(name, id);
-    g_id_to_name.push_back(std::string(name));
+    g_id_to_name.push_back(name);
     return id;
 }
 
 } // namespace
 
-ScopedTimer_::ScopedTimer_(std::string_view name)
+// Cambiado de std::string_view a const std::string&
+ScopedTimer_::ScopedTimer_(const std::string& name)
     : m_name_id(get_or_create_name_id(name)), m_start(std::chrono::high_resolution_clock::now())
 {
 }
@@ -63,7 +64,8 @@ ScopedTimer_::~ScopedTimer_()
     g_records.push_back({m_name_id, start_ns, end_ns});
 }
 
-void ScopedTimer_::write_to_csv(const std::filesystem::path& filename)
+// Cambiado de const std::filesystem::path& a const std::string&
+void ScopedTimer_::write_to_csv(const std::string& filename)
 {
     std::cout << "Start writing processing time to csv " << std::endl;
     std::ofstream ofile(filename);

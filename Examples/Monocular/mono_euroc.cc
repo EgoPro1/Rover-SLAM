@@ -77,7 +77,7 @@ int main(int argc, char **argv)
     cout.precision(17);
 
 
-    int fps = 20;
+    int fps = 30;
     float dT = 1.f/fps;
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     std::string strSettingsFile = argv[2];

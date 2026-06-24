@@ -299,8 +299,8 @@ public:
    */
   int getDescritorType()const;
   //io to-from a stream
-  void toStream(  std::ostream &str, bool compressed=true) const noexcept(false);
-  void fromStream(  std::istream &str )   noexcept(false);
+  void toStream(  std::ostream &str, bool compressed=true) const;
+  void fromStream(  std::istream &str );
 
  protected:
 
@@ -435,7 +435,7 @@ protected:
 
    /**Loads from ORBSLAM txt files
     */
-   void load_fromtxt(const std::string &filename)noexcept(false);
+   void load_fromtxt(const std::string &filename);
 
 protected:
 

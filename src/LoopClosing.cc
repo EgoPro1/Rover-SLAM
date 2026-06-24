@@ -713,18 +713,35 @@ bool LoopClosing::DetectAndReffineSim3FromLastKF(KeyFrame* pCurrentKF, KeyFrame*
         int numOptMatches = Optimizer::OptimizeSim3(mpCurrentKF, pMatchedKF, vpMatchedMPs, gScm, 10, bFixedScale, mHessian7x7, true);
 
         //Verbose::PrintMess("Sim3 reffine: There are " + to_string(numOptMatches) + " matches after of the optimization ", Verbose::VERBOSITY_DEBUG);
-        // 若匹配的数量大于一定的数目
+        // // 若匹配的数量大于一定的数目
+        // if(numOptMatches > nProjOptMatches)
+        // {
+        //     //!bug, 以下gScw_estimation应该通过上述sim3优化后的位姿来更新。以下mScw应该改为 gscm * gswm^-1
+        //     g2o::Sim3 gScw_estimation(gScw.rotation(), gScw.translation(),1.0);
+
+        //     vector<MapPoint*> vpMatchedMP;
+        //     vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
+
+        //     // 再次通过优化后的Sim3搜索匹配点
+        //     nNumProjMatches = FindMatchesByProjection(pCurrentKF, pMatchedKF, gScw_estimation, spAlreadyMatchedMPs, vpMPs, vpMatchedMPs);
+           
+        
         if(numOptMatches > nProjOptMatches)
         {
-            //!bug, 以下gScw_estimation应该通过上述sim3优化后的位姿来更新。以下mScw应该改为 gscm * gswm^-1
-            g2o::Sim3 gScw_estimation(gScw.rotation(), gScw.translation(),1.0);
+            // 1. Recuperamos la pose del mapa candidato en el mundo
+            Sophus::SE3d mTwm = pMatchedKF->GetPoseInverse().cast<double>();
 
+            // CORRECCIÓN: Cambiado 'unit_conjoint()' por 'unit_quaternion()'
+            g2o::Sim3 gSwm(mTwm.unit_quaternion(), mTwm.translation(), 1.0);
+
+            // 2. Calculamos la nueva estimación del mundo a la cámara usando el gScm OPTIMIZADO
+            g2o::Sim3 gScw_estimation = gScm * gSwm.inverse(); 
+        
             vector<MapPoint*> vpMatchedMP;
             vpMatchedMP.resize(mpCurrentKF->GetMapPointMatches().size(), static_cast<MapPoint*>(NULL));
-
-            // 再次通过优化后的Sim3搜索匹配点
+        
             nNumProjMatches = FindMatchesByProjection(pCurrentKF, pMatchedKF, gScw_estimation, spAlreadyMatchedMPs, vpMPs, vpMatchedMPs);
-            // 若果大于期望数目,接受这个结果
+        // 若果大于期望数目,接受这个结果
             if(nNumProjMatches >= nProjMatchesRep)
             {
                 gScw = gScw_estimation;
@@ -759,11 +776,16 @@ bool LoopClosing::DetectCommonRegionsFromBoW(
     int &nNumCoincidences, std::vector<MapPoint*> &vpMPs, std::vector<MapPoint*> &vpMatchedMPs)
 {
     // 一些后面会使用的阀值
-    int nBoWMatches = 20; // 最低bow匹配特征点数
-    int nBoWInliers = 15; // RANSAC最低的匹配点数
-    int nSim3Inliers = 20; // sim3 最低内点数 
-    int nProjMatches = 50; // 通过投影得到的匹配点数量最低阀值
-    int nProjOptMatches = 80; // 通过更小的半径,更严的距离搜索到的匹配点数量
+     int nBoWMatches = 20; // 最低bow匹配特征点数
+     int nBoWInliers = 15; // RANSAC最低的匹配点数
+     int nSim3Inliers = 20; // sim3 最低内点数 
+     int nProjMatches = 50; // 通过投影得到的匹配点数量最低阀值
+     int nProjOptMatches = 80; // 通过更小的半径,更严的距离搜索到的匹配点数量
+    //int nBoWMatches = 25;      // Bajamos ligeramente de 20 a 15
+    //int nBoWInliers = 18;      // RANSAC con 10 puntos en LightGlue es un match perfecto
+    //int nSim3Inliers = 20;     // Exigencia de inliers Sim3 reducida a 12
+    //int nProjMatches = 35;     // ¡CRÍTICO! Bajamos de 50 a 20 para aceptar el match geométrico
+    //int nProjOptMatches = 45;  // ¡CRÍTICO! Bajamos de 80 a 30 para la optimización final
 
     // 1. 获取当前帧的共视帧(在共同区域检测中应该避免当前关键帧的共视关键帧中)
     set<KeyFrame*> spConnectedKeyFrames = mpCurrentKF->GetConnectedKeyFrames();
@@ -1172,8 +1194,8 @@ bool LoopClosing::DetectCommonRegionsFromBoW_sp(
     int nBoWMatches = 20; // 最低bow匹配特征点数
     int nBoWInliers = 15; // RANSAC最低的匹配点数
     int nSim3Inliers = 12; // 20  sim3 最低内点数 
-    int nProjMatches = 200; // 通过投影得到的匹配点数量最低阀值 40
-    int nProjOptMatches = 80; // 通过更小的半径,更严的距离搜索到的匹配点数量
+    int nProjMatches = 80; // 通过投影得到的匹配点数量最低阀值 40
+    int nProjOptMatches = 50; // 通过更小的半径,更严的距离搜索到的匹配点数量
 
     // 1. 获取当前帧的共视帧(在共同区域检测中应该避免当前关键帧的共视关键帧中)
     set<KeyFrame*> spConnectedKeyFrames = mpCurrentKF->GetConnectedKeyFrames();
@@ -1670,7 +1692,7 @@ bool LoopClosing::DetectCommonRegionsFromLastKF(
     //cout<<"LC4"<<endl;
     nNumProjMatches = FindMatchesByProjection(pCurrentKF, pMatchedKF, gScw, spAlreadyMatchedMPs, vpMPs, vpMatchedMPs);
 
-    int nProjMatches = 30;
+    int nProjMatches = 20;
     // 如果匹配点数目大于一定的阀值,则认为验证成功,返回ture
     if(nNumProjMatches >= nProjMatches)
     {

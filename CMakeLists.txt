@@ -9,7 +9,7 @@ MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -O3") #其中${CMAKE_C_FLAGS}表示先前在CMake中定义的C语言编译器标志，而-Wall -O3是额外添加到这个变量中的编译器标志。
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3")
-set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -fopenmp -march=native -pthread")
+set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -fopenmp -march=native -pthread")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -march=native")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -O3")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS} -g")
@@ -35,12 +35,11 @@ LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 # 要保证整个工程的opencv版本一致，包括dbow，源码以及ros相关的
 # 3 4 都可以正常运行//必须要opencv3.4.13,要不然会在加载词袋处卡住
 
-find_package(OpenCV 3.4.13 REQUIRED)
-if(NOT OpenCV_FOUND)
-  message(FATAL_ERROR "OpenCV > 3.2 not found.")
-endif()
-#find_package(OpenCV REQUIRED)
-#find_package(OpenCV 4.0 REQUIRED)
+find_package(OpenCV REQUIRED)
+   if(NOT OpenCV_FOUND)
+      message(FATAL_ERROR "OpenCV > 3.2 not found.")
+   endif()
+
 
 MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
@@ -61,8 +60,8 @@ ${PROJECT_SOURCE_DIR}/include
 ${PROJECT_SOURCE_DIR}/include/CameraModels
 ${PROJECT_SOURCE_DIR}/Thirdparty/Sophus
 ${EIGEN3_INCLUDE_DIR}
-/opt/onnxruntime-linux-x64-gpu-1.16.3/include
-${CUDA_INCLUDE_DIRS}
+set(ONNXRUNTIME_DIR "/root/workspace/ROVER-SLAM/onnxruntime-linux-x64-gpu-1.16.3")
+/root/workspace/ROVER-SLAM/onnxruntime-linux-x64-gpu-1.16.3/include
 ${Boost_INCLUDE_DIRS}
 ${YAML_CPP_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
@@ -152,25 +151,22 @@ include/scoped_timer.h
 )
 
 add_subdirectory(Thirdparty/g2o)
-add_subdirectory(Thirdparty/DBoW3)
-add_library(DBoW3::DBoW3 ALIAS DBoW3)
-add_library(g2o::core ALIAS g2o)
 
 target_link_libraries(${PROJECT_NAME}
 ${CUDA_LIBRARIES}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
-#${PROJECT_SOURCE_DIR}/Thirdparty/DBoW3/lib/libDBoW3.so
-DBoW3::DBoW3
-#${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
-g2o::core
+${PROJECT_SOURCE_DIR}/Thirdparty/DBoW3/lib/libDBoW3.so
+${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 -lboost_serialization
 -lcrypto
-#/usr/local/lib/libonnxruntime.so
-/opt/onnxruntime-linux-x64-gpu-1.16.3/lib/libonnxruntime.so
+/usr/local/lib/libonnxruntime.so
 )
-
+link_directories(
+    # ... otras rutas ...
+    /root/workspace/ROVER-SLAM/onnxruntime-linux-x64-gpu-1.16.3/lib
+)
 
 # Build examples
 

@@ -396,7 +396,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, SPextractor* extrac
 
     // Step 3 对这个单目图像进行提取特征点, 第一个参数0-左图， 1-右图
     //ExtractORB(0,imGray,0,1000);
-    ExtractKeyPoints(0,imGray,0,1000);
+    ExtractKeyPoints(0,imGray,0,50);
 #ifdef REGISTER_TIMES
     std::chrono::steady_clock::time_point time_EndExtORB = std::chrono::steady_clock::now();
 

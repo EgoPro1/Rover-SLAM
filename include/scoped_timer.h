@@ -1,38 +1,33 @@
 #pragma once
 
+#include <string>
 #include <chrono>
-#include <filesystem>
-#include <string_view>
 
-#define REGISTER_TIMES_
-#ifdef REGISTER_TIMES_
-constexpr bool REGISTER_TIMES = true;
-#else
-constexpr bool REGISTER_TIMES = false;
-#endif
-
-class ScopedTimer_
-{
-  public:
-    explicit ScopedTimer_(std::string_view name);
+class ScopedTimer_ {
+public:
+    explicit ScopedTimer_(const std::string& name);
     ~ScopedTimer_();
+    
+    static void write_to_csv(const std::string& filename);
 
-    static void write_to_csv(const std::filesystem::path& filename);
-
-  private:
+private:
     int m_name_id;
-    std::chrono::time_point<std::chrono::high_resolution_clock> m_start;
+    std::chrono::high_resolution_clock::time_point m_start;
 };
 
-class NoOpTimer
-{
-  public:
-    NoOpTimer(std::string_view)
-    {
-    }
-    static void write_to_csv(const std::filesystem::path&)
-    {
-    }
+class NoOpTimer {
+public:
+    NoOpTimer(const std::string& /*name*/) {}
+    static void write_to_csv(const std::string& /*filename*/) {}
 };
 
-using ScopedTimer = std::conditional_t<REGISTER_TIMES, ScopedTimer_, NoOpTimer>;
+// =================================================================
+// ¡ESTO ES LO QUE FALTA! 
+// Define ScopedTimer para que todo el proyecto lo reconozca.
+// =================================================================
+
+// Opción 1: Activar los temporizadores (Para medir tiempos y generar el CSV)
+using ScopedTimer = ScopedTimer_;
+
+// Opción 2: Desactivar los temporizadores (Si en el futuro quieres que no consuman CPU)
+// using ScopedTimer = NoOpTimer;
